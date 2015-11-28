@@ -7,7 +7,6 @@
 #include <linux/fb.h>
 #include "bitmap.h"
 
-
 #define FBDEV_FILE "/dev/fb0"
 
 #define BIT_VALUE_24BIT 24
