@@ -584,6 +584,8 @@ void initScreen(unsigned char *fb_mem )
 		}
 	}
 }
+
+
 static void yuv_a_rgb(unsigned char y, unsigned char u, unsigned char v,
                unsigned char* r, unsigned char* g, unsigned char* b)
 {
