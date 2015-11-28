@@ -178,7 +178,7 @@ int main (int argc, char **argv)
 	
 	// distance control
 	int offset_x = 640;
-	int offset_y = (screen_height - rows)/2;
+	int offset_y = 240;
 
 
 

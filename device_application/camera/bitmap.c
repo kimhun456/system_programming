@@ -11,15 +11,7 @@
 
 #define BIT_VALUE_24BIT 24
 
-void usage(void)
-{
-  printf("====================================================\n");
-  printf("\nUsage: ./bitmap [FILE.bmp]\n");
-  printf("====================================================\n");
-}
 
-// filename의 파일을 열어 순수 bitmap data은 *data 주소에 저장하고 , pDib은
-// malloc 해제하기 위한 메모리 포이트이다.
 void read_bmp(char *filename, char **pDib, char **data, int *cols, int *rows)
 {
   BITMAPFILEHEADER   bmpHeader;
@@ -45,8 +37,6 @@ void read_bmp(char *filename, char **pDib, char **data, int *cols, int *rows)
       fclose(fp);
       return;
   }
-
-
 
   nread = fread(&bmpHeader.bfSize, 1, sizeof(BITMAPFILEHEADER), fp);
 
@@ -84,7 +74,7 @@ void close_bmp(char **pDib)
 
 
 
-int main (int argc, char **argv)
+int main ()
 {
     int i, j, k, t;
     int fbfd;
@@ -111,12 +101,9 @@ int main (int argc, char **argv)
     printf("=================================\n\n");
 
 
-    if(argc != 2) {
-      usage();
-      return 0;
-    }
+    char* file_name = "bike.bmp";
 
-    read_bmp(argv[1], &pData, &data, &cols, &rows);
+    read_bmp(file_name, &pData, &data, &cols, &rows);
     printf("Bitmap : cols = %d, rows = %d\n", cols, rows);
 
 
@@ -175,7 +162,7 @@ int main (int argc, char **argv)
     printf("line_length : %d\n", line_length);
 
     pfbmap = (unsigned char *) mmap(0, mem_size, PROT_READ|PROT_WRITE, MAP_SHARED, fbfd, 0);
-	
+
 	// distance control
 	int offset_x = 640;
 	int offset_y = (screen_height - rows)/2;
