@@ -1,6 +1,9 @@
 var net = require('net');
 var port = 1337;
 var clients = [];
+var received_data;
+
+
 var server = net.createServer(function(socket) {
 	socket.setEncoding("utf8");
 	socket.name = socket.remoteAddress + ":" + socket.remotePort ;
@@ -9,9 +12,17 @@ var server = net.createServer(function(socket) {
 	clients.push(socket);
 	console.log("----------"+socket.name + " is connected------");
 	socket.on('data',function(data){
-		console.log("recieved data : " + data.toString());
+		received_data = data.toString();
+
+		console.log("recieved data : " + received_data);
+
+		var datas = received_data.split("/");
+
+		console.log(datas);
+
+
 		broadcast(data);
-		console.log("send data  : " + data.toString());
+		console.log("send data  : " + received_data);
 	});
 
 	socket.on("end", function(){

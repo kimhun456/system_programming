@@ -1,6 +1,8 @@
 /*
 
  ECHO client example using sockets
+
+
 */
 
 #include <stdio.h>
@@ -11,14 +13,21 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#define MAX_THREADS 1000
+#define MAX_MESSAGE 2000
 
+char *ip = "52.69.176.156";
+int port = 1337;
+
+
+// thread 가 실행하는 function
 void * t_function(void *data)
 {
     printf("Thread Start\n");
 
   printf("%s\n",(char*)data);
   sleep(1);
-    printf("Thread end\n");
+  printf("Thread end\n");
 
   return (void*)data;
 }
@@ -27,15 +36,15 @@ int main(int argc , char *argv[])
 {
     int sock;
     int i;
+
     struct sockaddr_in server;
-    char message[2000];
-    char server_reply[2000];
-    pthread_t p_thread[500];
+    char message[MAX_MESSAGE];
+    char server_reply[MAX_MESSAGE];
+    pthread_t p_thread[MAX_THREADS];
     int thr_id;
     int status;
     int a = 100;
     int count = 0;
-
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
     if (sock == -1)
@@ -46,9 +55,9 @@ int main(int argc , char *argv[])
 
 
     // PORT AND IP setting
-    server.sin_addr.s_addr = inet_addr("52.69.176.156");
+    server.sin_addr.s_addr = inet_addr(ip);
     server.sin_family = AF_INET;
-    server.sin_port = htons( 1337 );
+    server.sin_port = htons( port );
 
 
 
@@ -62,11 +71,11 @@ int main(int argc , char *argv[])
     printf("Connected\n");
 
     //keep communicating with server
-    while(count < 500)
+    while(count < MAX_THREADS)
     {
 
         //Receive a data from the server
-        if( recv(sock , server_reply , 2000 , 0) < 0)
+        if( recv(sock , server_reply , MAX_MESSAGE , 0) < 0)
         {
             puts("recv failed");
             break;
@@ -77,7 +86,9 @@ int main(int argc , char *argv[])
         // printf("%s\n",server_reply);
 
         printf("Before Thread Created\n");
+
         thr_id = pthread_create(&p_thread[count], NULL, t_function, (void *)server_reply);
+
         if (thr_id < 0)
         {
             perror("thread create error : ");
@@ -118,6 +129,5 @@ if( send(sock , message , strlen(message) , 0) < 0)
 for(i=0;i<2000;i++){
   message[i]='\0';
 }
-
 
 */
