@@ -14,9 +14,7 @@
 #include "camera.h"
 #include "bitmap.h"
 
-
-
-#define V4L2_CID_CACHEABLE                      (V4L2_CID_BASE+40)
+#define V4L2_CID_CACHEABLE         (V4L2_CID_BASE+40)
 #define FBDEV_FILE "/dev/fb0"
 #define BIT_VALUE_24BIT 24
 
@@ -30,15 +28,6 @@ static int   screen_height;
 static int   bits_per_pixel;
 static int   line_length;
 
-
-
-// bitmap function
-void usage(void)
-{
-  printf("====================================================\n");
-  printf("\nUsage: ./bitmap [FILE.bmp]\n");
-  printf("====================================================\n");
-}
 
 // filename의 파일을 열어 순수 bitmap data은 *data 주소에 저장하고 , pDib은
 // malloc 해제하기 위한 메모리 포이트이다.
@@ -67,8 +56,6 @@ void read_bmp(char *filename, char **pDib, char **data, int *cols, int *rows)
       fclose(fp);
       return;
   }
-
-
 
   nread = fread(&bmpHeader.bfSize, 1, sizeof(BITMAPFILEHEADER), fp);
 
@@ -102,12 +89,6 @@ void close_bmp(char **pDib)
 {
   free(*pDib); // 메모리 해제
 }
-
-
-// END BITMAP Function
-
-
-
 
 static int close_buffers(struct SecBuffer *buffers, int num_of_buf)
 {
@@ -652,7 +633,6 @@ int mem_size;
     unsigned char *pfbmap;
     unsigned long *ptr;
 
-
     char* file_name = "bike.bmp";
 
     read_bmp(file_name, &pData, &data, &cols, &rows);
@@ -840,9 +820,10 @@ static void DrawFromRGB565(unsigned char *displayFrame, unsigned char *videoFram
 
 #define  FBDEV_FILE "/dev/fb0"
 
-int main(int argc, char **argv)
-{
-	int     fb_fd;
+
+void camera_start(){
+
+  int     fb_fd;
 	int	    ret;
 	int     index;
 
@@ -919,4 +900,11 @@ int main(int argc, char **argv)
 	close(fb_fd);
 
 	exit(1);
+}
+
+int main(int argc, char **argv)
+{
+  camera_start();
+
+  return 0;
 }

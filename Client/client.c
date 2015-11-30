@@ -3,8 +3,7 @@
  ECHO client example using sockets
 
 
-*/
-
+ */
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -18,6 +17,12 @@
 
 char *ip = "52.69.176.156";
 int port = 1337;
+int sock;
+struct sockaddr_in server;
+char server_reply[MAX_MESSAGE];
+pthread_t p_thread[MAX_THREADS];
+int thr_id[MAX_THREADS];
+int count = 0;
 
 
 // thread 가 실행하는 function
@@ -25,26 +30,32 @@ void * t_function(void *data)
 {
     printf("Thread Start\n");
 
-  printf("%s\n",(char*)data);
-  sleep(1);
-  printf("Thread end\n");
+    char str[MAX_MESSAGE] ;
+    strcpy(str,(char *)data);
+    char *ptr;
 
-  return (void*)data;
+    printf("함수 호출 전의 스트링 : %s\n" , str) ;
+
+    ptr = strtok(str, "/");
+
+    while(ptr != NULL ){
+
+            printf( "%s\n" , ptr);
+            ptr = strtok(NULL, "/");
+    }
+
+
+    //1초 쉬게 해줌
+    //sleep(1);
+
+    printf("Thread end\n");
+
+    return (void*)data;
 }
 
 int main(int argc , char *argv[])
 {
-    int sock;
-    int i;
 
-    struct sockaddr_in server;
-    char message[MAX_MESSAGE];
-    char server_reply[MAX_MESSAGE];
-    pthread_t p_thread[MAX_THREADS];
-    int thr_id;
-    int status;
-    int a = 100;
-    int count = 0;
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
     if (sock == -1)
@@ -59,8 +70,6 @@ int main(int argc , char *argv[])
     server.sin_family = AF_INET;
     server.sin_port = htons( port );
 
-
-
     //Connect to remote server
     if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
     {
@@ -73,7 +82,6 @@ int main(int argc , char *argv[])
     //keep communicating with server
     while(count < MAX_THREADS)
     {
-
         //Receive a data from the server
         if( recv(sock , server_reply , MAX_MESSAGE , 0) < 0)
         {
@@ -87,9 +95,9 @@ int main(int argc , char *argv[])
 
         printf("Before Thread Created\n");
 
-        thr_id = pthread_create(&p_thread[count], NULL, t_function, (void *)server_reply);
+        thr_id[count] = pthread_create(&p_thread[count], NULL, t_function, (void *)server_reply);
 
-        if (thr_id < 0)
+        if (thr_id[count] < 0)
         {
             perror("thread create error : ");
             exit(0);
@@ -102,6 +110,10 @@ int main(int argc , char *argv[])
 
         // 초기화
         count++;
+
+        if(count > MAX_THREADS){
+          count=count%MAX_THREADS;
+        }
         // for(i=0;i<2000;i++){
         //   server_reply[i]='\0';
         // }
@@ -113,21 +125,21 @@ int main(int argc , char *argv[])
 
 
 /*
-printf("Enter message : ");
+ printf("Enter message : ");
 
-fgets(message , 2000, stdin);
+ fgets(message , 2000, stdin);
 
-message[strlen(message)-1]='\0';
+ message[strlen(message)-1]='\0';
 
 
-//Send some data
-if( send(sock , message , strlen(message) , 0) < 0)
-{
-    puts("Send failed");
-    return 1;
-}
-for(i=0;i<2000;i++){
-  message[i]='\0';
-}
+ //Send some data
+ if( send(sock , message , strlen(message) , 0) < 0)
+ {
+ puts("Send failed");
+ return 1;
+ }
+ for(i=0;i<2000;i++){
+ message[i]='\0';
+ }
 
-*/
+ */
