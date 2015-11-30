@@ -1,5 +1,3 @@
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +9,15 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
+#include <sys/mman.h>
+#include <errno.h>
+#include <sys/poll.h>
+#include <linux/fb.h>
+#include <linux/videodev2.h>
+#include "videodev2.h"
+#include "SecBuffer.h"
+#include "camera.h"
+#include "bitmap.h"
 
 #define DIPSW_DRIVER_NAME		"/dev/cndipsw"
 #define BUS_LED_ON	1
@@ -56,7 +63,7 @@ static int  text_fd ;
 #define TEXTLCD_CLEAR_DISPLAY		0x0001
 #define TEXTLCD_CURSOR_AT_HOME		0x0002
 
-// Entry Mode set 
+// Entry Mode set
 #define TEXTLCD_MODE_SET_DEF		0x0004
 #define TEXTLCD_MODE_SET_DIR_RIGHT	0x0002
 #define TEXTLCD_MODE_SET_SHIFT		0x0001
@@ -72,7 +79,7 @@ static int  text_fd ;
 #define TEXTLCD_CUR_DIS_SHIFT		0x0008
 #define TEXTLCD_CUR_DIS_DIR			0x0004
 
-// set DDRAM  address 
+// set DDRAM  address
 #define TEXTLCD_SET_DDRAM_ADD_DEF	0x0080
 
 // read bit
@@ -97,7 +104,7 @@ static int  text_fd ;
 int keyMatrix(void)
 {
 	int rdata ;
-        int pwArr[4]= {1,3,5,7};	
+        int pwArr[4]= {1,3,5,7};
 	int fd;
 	int save[4]={0};
 	int i=0;
@@ -105,7 +112,7 @@ int keyMatrix(void)
 	int flag=0;
 
 
-	// open  driver 
+	// open  driver
 	fd = open(KEY_MATRIX_DRIVER_NAME,O_RDWR);
 	if ( fd < 0 )
 	{
@@ -114,40 +121,40 @@ int keyMatrix(void)
 	}
 	printf("pw:");
 	while(1)
- 	{	
+ 	{
 		read(fd,&rdata,4);
-		
+
 		if(rdata){
                 printf("*");
-				
+
 		save[i]=rdata;
 		i++;
-		
+
 		usleep(300000);
 		fflush(stdout);
 	 	}
-					      
+
 		if(i==4){
 			printf("\n");
 			break;
 			}
 	}
-	for(i=0;i<4;i++){		
+	for(i=0;i<4;i++){
 		if(save[i]!=pwArr[i]){
-			
+
 			//printf("ERROR!!!!!!\n");
-			close(fd);	
+			close(fd);
 			return 0;
 		}
-		
+
 	}
 	printf("good  pw : %d %d %d %d \n",save[0],save[1],save[2],save[3]);
 	close(fd);
 	return 1;
-	
-	
-	
-	
+
+
+
+
 }
 
 
@@ -157,10 +164,10 @@ int keyMatrix(void)
 
 
 /*
-		a		
+		a
 	f		b
-		g		
-	e		c	
+		g
+	e		c
 		d		dp
 
 
@@ -184,7 +191,7 @@ const unsigned short segNum[10] =
 	0x7F,
 	0x6F  // 9
 };
-const unsigned short segSelMask[FND_MAX_FND_NUM] = 
+const unsigned short segSelMask[FND_MAX_FND_NUM] =
 {
 	0xFE00,
 	0xFD00,
@@ -217,7 +224,7 @@ int fndkbhit(void)
 
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
-	
+
 	FD_ZERO(&rdfs);
 	FD_SET(STDIN_FILENO , &rdfs);
 
@@ -240,7 +247,7 @@ int fndDisp(int driverfile, int num , int dotflag,int durationSec)
 
 	for (i = 0; i < FND_MAX_FND_NUM ; i++ )
 	{
-		dotEnable[i] = dotflag & (0x1 << i);  
+		dotEnable[i] = dotflag & (0x1 << i);
 	}
 	// if 6 fnd
 	temp = num % 1000000;
@@ -268,7 +275,7 @@ int fndDisp(int driverfile, int num , int dotflag,int durationSec)
 	{
 		wdata = segNum[fndChar[cSelCounter]]  | segSelMask[cSelCounter] ;
 		if (dotEnable[cSelCounter])
-			wdata |= FND_DOT_OR_DATA;	
+			wdata |= FND_DOT_OR_DATA;
 
 		write(driverfile,&wdata,2);
 
@@ -281,12 +288,12 @@ int fndDisp(int driverfile, int num , int dotflag,int durationSec)
 		loopCounter++;
 		if ( loopCounter > totalCount )
 			break;
-		
+
 		if (fndkbhit())
 		{
 			if ( getchar() == (int)'q')
 			{
-		
+
 				wdata= 0;
 				write(driverfile,&wdata,2);
 				//printf("Exit fndtest\n");
@@ -311,35 +318,35 @@ void fndLed(int distance)
 	int mode ;
 	int number,counter;
 	int durationtime;
-	
-	
-	
-	
+
+
+
+
 		mode = FND_MODE_STATIC_DIS;
-	
+
 		durationtime = 3;
-		
+
 		number = distance;
 
-	
-	
+
+
 
 	printf("distance :%d\n",number);
-	// open  driver 
+	// open  driver
 	fd = open(FND_DRIVER_NAME,O_RDWR);
-	
+
 	fndchangemode(1);
-	
+
 		fndDisp(fd, number , 0,durationtime);
-	
-	
+
+
 
 		//LABEL_ERR:
 
 	fndchangemode(0);
 	close(fd);
-	
-	
+
+
 }
 
 
@@ -353,13 +360,13 @@ void fndLed(int distance)
 
 #define OLED_DRIVER_NAME		"/dev/cnoled"
 
-static  int  OLED_fd ; 
+static  int  OLED_fd ;
 
 
 unsigned long simple_strtoul(char *cp, char **endp,unsigned int base)
 {
 	unsigned long result = 0,value;
-	
+
 	if (*cp == '0') {
 		cp++;
 		if ((*cp == 'x') && isxdigit(cp[1])) {
@@ -390,7 +397,7 @@ unsigned long read_hex(const char* str){
 }
 
 
-// signal form 
+// signal form
 //	12bit	11bit	10bit	9bit	8bit	7bit	6bit	5bit	4bit	3bit	2bit	1bit	0bit
 //	RST#	CS#		D/C#	WD#		RD#		D7		D6		D5		D4		D3		D2		D1		D0
 // trigger => WD or RD rising edge
@@ -401,7 +408,7 @@ unsigned long read_hex(const char* str){
 
 
 ************************************************************************************************/
-#define OLED_RST_BIT_MASK	0xEFFF		
+#define OLED_RST_BIT_MASK	0xEFFF
 #define OLED_CS_BIT_MASK		0xF7FF
 #define OLED_DC_BIT_MASK		0xFBFF
 #define OLED_WD_BIT_MASK		0xFDFF
@@ -444,7 +451,7 @@ int oledwriteCmd(int size , unsigned short* cmdArr)
 
 	wdata = OLED_CS_BIT_MASK & OLED_DC_BIT_MASK & OLED_WD_BIT_MASK & (cmdArr[0]|0xFF00) ;
 	write(OLED_fd,&wdata,2);
-	
+
 	wdata = OLED_CS_BIT_MASK & OLED_DC_BIT_MASK & (cmdArr[0] | 0xFF00) ;
 	write(OLED_fd,&wdata,2);
 
@@ -483,7 +490,7 @@ int oledwriteData(int size , unsigned char* dataArr)
 {
 	int i ;
 	unsigned short wdata;
-	
+
 	//wdata = CS_BIT_MASK;
 	//write(OLED_fd,&wdata,2);
 
@@ -593,7 +600,7 @@ int oledsetAddressDefalut(void)
 int oledsetCmdLock(int bLock)
 {
 	unsigned short  cmd[3];
-	
+
 	cmd[0] = OLED_CMD_LOCK;
 	if (bLock)
 	{
@@ -620,7 +627,7 @@ int oledimageLoading(char* fileName)
 	int  width , height;
 
 	imgfile = open(fileName , O_RDONLY );
-	if ( imgfile < 0 ) 
+	if ( imgfile < 0 )
 	{
 		//printf ("imageloading(%s)  file is not exist . err.\n",fileName);
 		return OLED_FALSE;
@@ -643,7 +650,7 @@ int oledimageLoading(char* fileName)
 	return OLED_TRUE;
 }
 
-static unsigned short gamma[64]= 
+static unsigned short gamma[64]=
 {
 0xB8,
 0x02, 0x03, 0x04, 0x05,
@@ -675,7 +682,7 @@ int OledInit(void)
 	wdata[1] = 0x12;
 	oledwriteCmd(2,wdata);
 
-	
+
 	wdata[0] = 0xFD;
 	wdata[1] = 0xB1;
 	oledwriteCmd(2,wdata);
@@ -723,7 +730,7 @@ int OledInit(void)
 	wdata[1] = 0x0F;
 	oledwriteCmd(2,wdata);
 
-	// gamma setting 
+	// gamma setting
 	oledwriteCmd(64,gamma);
 
 
@@ -751,7 +758,7 @@ int OledInit(void)
 
 	wdata[0] = 0xA6;
 	oledwriteCmd(1,wdata);
-	
+
 
 	for (i = 0; i < 128;i++ )
 	{
@@ -762,7 +769,7 @@ int OledInit(void)
 			wcdata[2] = 0;
 			oledwriteData(3,wcdata);
 		}
-	
+
 	}
 
 	wdata[0] = 0xAF;
@@ -782,7 +789,7 @@ int OledInit(void)
 #define OLED_MODE_IMAGE		4
 //#define OLED_MODE_INIT		5
 #define OLED_RIGHT 1
-#define OLED_LEFT 0 
+#define OLED_LEFT 0
 
 static int OLED_Mode;
 
@@ -793,10 +800,10 @@ void oLed(int direction)
 	int readNum;
 	unsigned short* rdata = NULL;
 	unsigned short wCmd[10];
-	
-	
-	
-	
+
+
+
+
 	/*if ( argv[1][0] == 'w')
 	{
 		int i ,j;
@@ -818,7 +825,7 @@ void oLed(int direction)
 	else if ( argv[1][0] == 'r')
 	{
 		OLED_Mode = OLED_MODE_READ;
-		if ( argc < 3 ) 
+		if ( argc < 3 )
 		{
 			perror(" Args number is less than 3\n");
 			doHelp();
@@ -841,7 +848,7 @@ void oLed(int direction)
 		j = 0;
 		for ( i  = 2; i < argc ; i++ )
 		{
-			
+
 			wCmd[j] = (unsigned short)read_hex(argv[i]);
 			j++;
 		}
@@ -851,9 +858,9 @@ void oLed(int direction)
 	{
 		OLED_Mode = OLED_MODE_RESET;
 	}  */
-	
+
 		OLED_Mode = OLED_MODE_IMAGE;
-	
+
 /*
 	else if (argv[1][0] == 'i')
 	{
@@ -864,14 +871,14 @@ void oLed(int direction)
 		perror("No supported options.\n");
 		doHelp();
 		return 1;
-		
-	}   */
-	
-	// open  driver 
-	OLED_fd = open(OLED_DRIVER_NAME,O_RDWR);
-	
 
-	/*switch ( OLED_Mode ) 
+	}   */
+
+	// open  driver
+	OLED_fd = open(OLED_DRIVER_NAME,O_RDWR);
+
+
+	/*switch ( OLED_Mode )
 	{
 	case OLED_MODE_WRITE:
 		writeData(writeNum, wdata);
@@ -899,7 +906,7 @@ void oLed(int direction)
 		oledimageLoading("right.img");
 		else
 		oledimageLoading("left.img");
-		
+
 	/*case OLED_MODE_INIT:
 		OledInit();
 		break;
@@ -908,7 +915,7 @@ void oLed(int direction)
 
 
 	close(OLED_fd);
-	
+
 	/*if ( OLED_Mode == OLED_MODE_READ)
 	{
 		if ( rdata != NULL)
@@ -917,7 +924,7 @@ void oLed(int direction)
 	}*/
 
 
-	
+
 }
 
 
@@ -927,8 +934,8 @@ void oLed(int direction)
 
 /***************************************************
 read /write  sequence  text!!
-write cycle 
-RS,(R/W) => E (rise) => Data => E (fall) 
+write cycle
+RS,(R/W) => E (rise) => Data => E (fall)
 
 ***************************************************/
 int textIsBusy(void)
@@ -988,11 +995,11 @@ int text_setDDRAMAddr(int x , int y)
 	cmd = TEXTLCD_DDRAM_ADDR_LINE_2 +x;
 	//printf("line2 %d %d\n",x,y);
 	}
-	
+
 	if ( cmd >= 0x80)
 		return TEXTLCD_FALSE;
 
-	
+
 //	printf("setDDRAMAddr w1 :0x%X\n",cmd);
 
 	if (!text_writeCmd(cmd | TEXTLCD_SET_DDRAM_ADD_DEF))
@@ -1077,7 +1084,7 @@ int functionSet(void)
 
 int writeStr(char* str)
 {
-	
+
 
 	unsigned char wdata;
 	int i;
@@ -1094,14 +1101,14 @@ int writeStr(char* str)
 }
 
 #define TEXTLCD_LINE_NUM			2
-#define TEXTLCD_COLUMN_NUM			16			
+#define TEXTLCD_COLUMN_NUM			16
 int clearScreen(int nline)
 {
 	int i;
 	if (nline == 0)
 	{
 		if(textIsBusy())
-		{	
+		{
 			perror("clearScreen error\n");
 			return TEXTLCD_FALSE;
 		}
@@ -1110,22 +1117,22 @@ int clearScreen(int nline)
 		return TEXTLCD_TRUE;
 	}
 	else if (nline == 1)
-	{	
+	{
 		text_setDDRAMAddr(0,1);
 		for(i = 0; i <= TEXTLCD_COLUMN_NUM ;i++ )
 		{
 			writeCh((unsigned char)' ');
-		}	
+		}
 		text_setDDRAMAddr(0,1);
 
 	}
 	else if (nline == 2)
-	{	
+	{
 		text_setDDRAMAddr(0,2);
 		for(i = 0; i <= TEXTLCD_COLUMN_NUM ;i++ )
 		{
 			writeCh((unsigned char)' ');
-		}	
+		}
 		text_setDDRAMAddr(0,2);
 	}
 	return TEXTLCD_TRUE;
@@ -1185,7 +1192,7 @@ int dotmatrix_kbhit(void)
 
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
-	
+
 	FD_ZERO(&rdfs);
 	FD_SET(STDIN_FILENO , &rdfs);
 
@@ -1210,17 +1217,17 @@ int displayDotLed(int driverfile , int num ,int timeS)
 	highChar = temp / 10;
 	lowChar = temp % 10;
 
-	
+
 	totalCount = timeS*(1000000 / DOTMATRIX_ONE_LINE_TIME_U);
 	//printf("totalcounter: %d\n",totalCount);
 	cSelCounter = 0;
 	loopCounter = 0;
 	while(1)
 	{
-		// high byte display 
+		// high byte display
 		wdata[0] = NumData[highChar][cSelCounter];
 
-		// low byte display 
+		// low byte display
 		wdata[1] = NumData[lowChar][cSelCounter];
 
 		write(driverfile,(unsigned char*)wdata,4);
@@ -1234,12 +1241,12 @@ int displayDotLed(int driverfile , int num ,int timeS)
 		loopCounter++;
 		if ( loopCounter > totalCount )
 			break;
-		
+
 		if (dotmatrix_kbhit())
 		{
 			if ( getchar() == (int)'q')
 			{
-		
+
 				wdata[0]= 0;
 				wdata[1]= 0;
 				write(driverfile,(unsigned char*)wdata,4);
@@ -1262,14 +1269,14 @@ void dotMatrix(int speed)
 	int i=0;
 	int durationTime=2 ;
 	int dotmatrix_fd;
-	
+
 	//printf("exit 'q' \n");
 
 	if (durationTime == 0 )
 		durationTime =1;
 
 	dotMatrixchangemode(1);
-	// open  driver 
+	// open  driver
 	dotmatrix_fd = open(DOTMATRIX_DRIVER_NAME,O_RDWR);
 	if ( dotmatrix_fd < 0 )
 	{
@@ -1277,14 +1284,14 @@ void dotMatrix(int speed)
 		exit(1);
 	}
 
-	
+
 	displayDotLed(dotmatrix_fd , speed ,durationTime);// i need  int driverfile , int num ,int timeS
-	
+
 
 	dotMatrixchangemode(0);
 	close(dotmatrix_fd);
-	
-	
+
+
 }
 
 //***********************************textlcd*************************************
@@ -1292,24 +1299,24 @@ int textLED(int row1, char* words1, int row2, char* words2)
 {
 
 	int nCmdMode;
-	int bCursorOn, bBlink, nline1 , nline2; 
+	int bCursorOn, bBlink, nline1 , nline2;
 	int nColumn1=0;
 	int nColumn2=0;
 	char strWtext1[TEXTLCD_COLUMN_NUM+1];
 	char strWtext2[TEXTLCD_COLUMN_NUM+1];
-	
+
 	//printf("row1:%d,row2:%d \n",row1,row2);
 	//printf("words1:%s,words2:%s\n",words1,words2);
-	
-	
+
+
 
 		nCmdMode =  TEXTLCD_CMD_TXT_WRITE ;
-		
+
 		nline1 = row1;
 		nline2 = row2;
 		//printf("nline1 :%d\n",nline1);
 		//printf("nline2 :%d\n",nline2);
- 		
+
 		if (strlen(words1) > TEXTLCD_COLUMN_NUM )
 		{
 			strncpy(strWtext1,words1,TEXTLCD_COLUMN_NUM);
@@ -1327,16 +1334,16 @@ int textLED(int row1, char* words1, int row2, char* words2)
 		}
 		else
 		{
-			
+
 			strcpy(strWtext2,words2);
 
 		}
-	
-	
+
+
 	/*else if (  argv[1][0] == 'c' )
 	{
 		nCmdMode =  CMD_CURSOR_POS ;
-		if ( argc < 6 ) 
+		if ( argc < 6 )
 		{
 			perror(" c argument number is short.\n");
 			doHelp();
@@ -1354,7 +1361,7 @@ int textLED(int row1, char* words1, int row2, char* words2)
 			return 1;
 		}
 		nColumn = atoi(argv[5]);
-		if ( nColumn >15 ) 
+		if ( nColumn >15 )
 		{
 			perror(" nColumn max number is 15.\n");
 			doHelp();
@@ -1380,8 +1387,8 @@ int textLED(int row1, char* words1, int row2, char* words2)
 		doHelp();
 		return 1;
 	}*/
-	
-	// open  driver 
+
+	// open  driver
 	text_fd = open(TEXTLCD_DRIVER_NAME,O_RDWR);
 	if ( text_fd < 0 )
 	{
@@ -1396,7 +1403,7 @@ int textLED(int row1, char* words1, int row2, char* words2)
 		clearScreen(0);
 		//printf("nline:%d ,nColumn:%d\n",nline,nColumn);
 		text_setDDRAMAddr(nColumn1, nline1);
-		//usleep(2000);		
+		//usleep(2000);
 		writeStr(strWtext1);
 		text_setDDRAMAddr(nColumn2, nline2);
 		//usleep(2000);
@@ -1415,7 +1422,7 @@ int textLED(int row1, char* words1, int row2, char* words2)
 	//printf("str1:%s,str2:%s\n",strWtext1,strWtext2);
 
 	close(text_fd);
-	
+
 	return 0;
 }
 
@@ -1424,24 +1431,24 @@ void speedBuzzer(int speed,int limitSpeed)
 {
 	int buzzerNumber=0;
 	int sbuzzer_fd;
-	
-	
+
+
 
 	//buzzerNumber = atoi(argv[1]);
 
 	//printf("buzzer number :%d \n",buzzerNumber);
 
-	
-	
-	// open  driver 
+
+
+	// open  driver
 	sbuzzer_fd = open(SPEED_BUZZER_DRIVER_NAME,O_RDWR);
 	if ( sbuzzer_fd < 0 )
 	{
 		perror("driver (//dev//cnbuzzer) open error.\n");
 		exit(1);
 	}
-        
-	// control led 
+
+	// control led
 	if(speed >= limitSpeed){
   	buzzerNumber = 30 ;
 	write(sbuzzer_fd,&buzzerNumber,4);
@@ -1450,61 +1457,61 @@ void speedBuzzer(int speed,int limitSpeed)
 	write(sbuzzer_fd,&buzzerNumber,4);
  	}
 	close(sbuzzer_fd);
-	
-	
+
+
 }
 //************************************pwError buzzer *********************
 void pwBuzzer(void)
 {
 	int buzzerNumber=0;
 	int pwbuzzer_fd;
-	
-	
+
+
 
 	//buzzerNumber = atoi(argv[1]);
 
 	//printf("buzzer number :%d \n",buzzerNumber);
 
-	
-	
-	// open  driver 
+
+
+	// open  driver
 	pwbuzzer_fd = open(PW_BUZZER_DRIVER_NAME,O_RDWR);
 	if ( pwbuzzer_fd < 0 )
 	{
 		perror("driver (//dev//cnbuzzer) open error.\n");
 		exit(1);
 	}
-        
-	// control led 
-	
+
+	// control led
+
   	buzzerNumber = 30 ;
 	write(pwbuzzer_fd,&buzzerNumber,4);
  	sleep(3);
 	buzzerNumber = 0;
 	write(pwbuzzer_fd,&buzzerNumber,4);
- 	
+
 	close(pwbuzzer_fd);
-	
-	
+
+
 }
 //**********************************color led ************************************
 void cled(int speed)
 {
 	unsigned short colorArray[COLOR_INDEX_MAX];
-	
+
 	int cled_fd;
-	
-	
+
+
 	colorArray[COLOR_INDEX_LED] =(unsigned short)0;
 
-	// open  driver 
+	// open  driver
 	cled_fd = open(COLOR_DRIVER_NAME,O_RDWR);
 	if ( cled_fd < 0 )
 	{
 		perror("driver  open error.\n");
 		exit(1);
 	}
-	
+
 	if(speed== 0){
 	colorArray[COLOR_INDEX_REG_LED] =(unsigned short)100;
 	colorArray[COLOR_INDEX_GREEN_LED] =(unsigned short)0;
@@ -1515,27 +1522,27 @@ void cled(int speed)
 	colorArray[COLOR_INDEX_GREEN_LED] =(unsigned short)0;
 	colorArray[COLOR_INDEX_BLUE_LED] =(unsigned short)100;
 	}
-	
+
 
 	//printf("index(%d) r(%d) g(%d) b(%d)\n",colorArray[COLOR_INDEX_LED],colorArray[COLOR_INDEX_REG_LED],colorArray[COLOR_INDEX_GREEN_LED],colorArray[COLOR_INDEX_BLUE_LED]);
 	write(cled_fd,&colorArray,6);
 
 	close(cled_fd);
-	
-	
+
+
 }
 //**************************************dipsw************************************
 
 int dipsw(void)
 {
-	
+
 	int dipsw_fd;
 	int retvalue;
-	
-	
-	
 
-	// open  driver 
+
+
+
+	// open  driver
 	dipsw_fd = open(DIPSW_DRIVER_NAME,O_RDWR);
 	if ( dipsw_fd < 0 )
 	{
@@ -1547,7 +1554,7 @@ int dipsw(void)
 	//printf("retvalue:0x%X\n",retvalue);
 	//printf("******** %d ******",retvalue);
 	close(dipsw_fd);
-	
+
 	return retvalue;
 }
 
@@ -1562,20 +1569,20 @@ void busled(int speed)
 	int ledNo = 0;
 	int ledControl = 0;
 	int wdata ,rdata,temp ;
-	
+
 	int bus_fd;
-	
-	
-	
-	// open  driver 
+
+
+
+	// open  driver
 	bus_fd = open(BUS_LED_DRIVER_NAME,O_RDWR);
 	if ( bus_fd < 0 )
 	{
 		perror("driver (//dev//cnled) open error.\n");
 		exit(1);
 	}
-	// control led 
-	
+	// control led
+
 	/*if ( ledNo == 0 )
 	{
 		if ( ledControl ==  1 ) wdata = 0xff;
@@ -1629,12 +1636,911 @@ void busled(int speed)
 	write(bus_fd,&wdata,4);
 
 	close(bus_fd);
-	
-	
+
+
 }
+
+
+
+
+/****************************************CAMERA********************************************/
+
+#define V4L2_CID_CACHEABLE         (V4L2_CID_BASE+40)
+#define FBDEV_FILE "/dev/fb0"
+#define BIT_VALUE_24BIT 24
+
+static int m_preview_v4lformat = V4L2_PIX_FMT_RGB565;
+//static int m_preview_v4lformat = V4L2_PIX_FMT_YUV422P;
+static int  m_cam_fd;
+static struct SecBuffer m_buffers_preview[MAX_BUFFERS];
+static struct pollfd   m_events_c;
+static int   screen_width;
+static int   screen_height;
+static int   bits_per_pixel;
+static int   line_length;
+
+// filename의 파일을 열어 순수 bitmap data은 *data 주소에 저장하고 , pDib은
+// malloc 해제하기 위한 메모리 포이트이다.
+void read_bmp(char *filename, char **pDib, char **data, int *cols, int *rows)
+{
+  BITMAPFILEHEADER   bmpHeader;
+  BITMAPINFOHEADER   *bmpInfoHeader;
+  unsigned int size;
+  unsigned char magicNum[2];
+  int nread;
+  FILE *fp;
+  fp = fopen(filename, "rb");
+  if(fp == NULL) {
+   printf("ERROR\n");
+   return;
+ }
+
+  magicNum[0] = fgetc(fp);
+  magicNum[1] = fgetc(fp);
+
+
+  printf("magicNum : %c%c\n", magicNum[0], magicNum[1]);
+
+  if(magicNum[0] != 'B' && magicNum[1] != 'M') {
+      printf("It's not a bmp file!\n");
+      fclose(fp);
+      return;
+  }
+
+  nread = fread(&bmpHeader.bfSize, 1, sizeof(BITMAPFILEHEADER), fp);
+
+  size = bmpHeader.bfSize - sizeof(BITMAPFILEHEADER);
+  *pDib = (unsigned char *)malloc(size);
+
+  fread(*pDib, 1, size, fp);
+
+  bmpInfoHeader = (BITMAPINFOHEADER *)*pDib;
+
+  printf("nread : %d\n", nread);
+  printf("size : %d\n", size);
+
+  if(BIT_VALUE_24BIT != (bmpInfoHeader->biBitCount))
+  {
+    printf("It supports only 24bit bmp!\n");
+    fclose(fp);
+    return;
+  }
+  *cols = bmpInfoHeader->biWidth;
+  *rows = bmpInfoHeader->biHeight;
+  *data = (char *)(*pDib + bmpHeader.bfOffBits - sizeof(bmpHeader) - 2);
+
+  fclose(fp);
+
+}
+
+
+
+void close_bmp(char **pDib)
+{
+  free(*pDib); // 메모리 해제
+}
+
+static int close_buffers(struct SecBuffer *buffers, int num_of_buf)
+{
+	int ret,i,j;
+
+	for ( i = 0; i < num_of_buf; i++) {
+		for( j = 0; j < MAX_PLANES; j++) {
+			if (buffers[i].virt.extP[j]) {
+				ret = munmap(buffers[i].virt.extP[j], buffers[i].size.extS[j]);
+				buffers[i].virt.extP[j] = NULL;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int get_pixel_depth(unsigned int fmt)
+{
+	int depth = 0;
+
+	switch (fmt) {
+	case V4L2_PIX_FMT_NV12:
+	case V4L2_PIX_FMT_NV21:
+	case V4L2_PIX_FMT_YUV420:
+	case V4L2_PIX_FMT_YVU420:
+		depth = 12;
+		break;
+
+	case V4L2_PIX_FMT_RGB565:
+	case V4L2_PIX_FMT_YUYV:
+	case V4L2_PIX_FMT_YVYU:
+	case V4L2_PIX_FMT_UYVY:
+	case V4L2_PIX_FMT_VYUY:
+	case V4L2_PIX_FMT_NV16:
+	case V4L2_PIX_FMT_NV61:
+	case V4L2_PIX_FMT_YUV422P:
+		depth = 16;
+		break;
+
+	case V4L2_PIX_FMT_RGB32:
+		depth = 32;
+		break;
+	}
+
+	return depth;
+}
+
+
+static int fimc_poll(struct pollfd *events)
+{
+	int ret;
+
+	/* 10 second delay is because sensor can take a long time
+	* to do auto focus and capture in dark settings
+	*/
+	ret = poll(events, 1, 10000);
+	if (ret < 0) {
+		printf("ERR(%s):poll error\n", __func__);
+		return ret;
+	}
+
+	if (ret == 0) {
+		printf("ERR(%s):No data in 10 secs..\n", __func__);
+		return ret;
+	}
+
+	return ret;
+}
+
+static int fimc_v4l2_querycap(int fp)
+{
+	struct v4l2_capability cap;
+
+	if (ioctl(fp, VIDIOC_QUERYCAP, &cap) < 0) {
+		printf("ERR(%s):VIDIOC_QUERYCAP failed\n", __func__);
+		return -1;
+	}
+
+	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
+		printf("ERR(%s):no capture devices\n", __func__);
+		return -1;
+	}
+
+	return 0;
+	}
+
+static const __u8* fimc_v4l2_enuminput(int fp, int index)
+{
+	static struct v4l2_input input;
+
+	input.index = index;
+	if (ioctl(fp, VIDIOC_ENUMINPUT, &input) != 0) {
+		printf("ERR(%s):No matching index found\n", __func__);
+		return NULL;
+	}
+	printf("Name of input channel[%d] is %s\n", input.index, input.name);
+
+	return input.name;
+}
+
+static int fimc_v4l2_s_input(int fp, int index)
+{
+	struct v4l2_input input;
+
+	input.index = index;
+
+	if (ioctl(fp, VIDIOC_S_INPUT, &input) < 0) {
+		printf("ERR(%s):VIDIOC_S_INPUT failed\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int fimc_v4l2_s_fmt(int fp, int width, int height, unsigned int fmt, enum v4l2_field field, unsigned int num_plane)
+{
+	struct v4l2_format v4l2_fmt;
+	struct v4l2_pix_format pixfmt;
+	//unsigned int framesize;
+
+	memset(&v4l2_fmt, 0, sizeof(struct v4l2_format));
+	v4l2_fmt.type = V4L2_BUF_TYPE;
+
+
+	memset(&pixfmt, 0, sizeof(pixfmt));
+
+	pixfmt.width = width;
+	pixfmt.height = height;
+	pixfmt.pixelformat = fmt;
+	pixfmt.field = V4L2_FIELD_NONE;
+
+	v4l2_fmt.fmt.pix = pixfmt;
+	printf("fimc_v4l2_s_fmt : width(%d) height(%d)\n", width, height);
+
+	/* Set up for capture */
+	if (ioctl(fp, VIDIOC_S_FMT, &v4l2_fmt) < 0) {
+		printf("ERR(%s):VIDIOC_S_FMT failed\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int fimc_v4l2_s_fmt_cap(int fp, int width, int height, unsigned int fmt)
+{
+	struct v4l2_format v4l2_fmt;
+	struct v4l2_pix_format pixfmt;
+
+	memset(&pixfmt, 0, sizeof(pixfmt));
+
+	v4l2_fmt.type = V4L2_BUF_TYPE;
+
+	pixfmt.width = width;
+	pixfmt.height = height;
+	pixfmt.pixelformat = fmt;
+	if (fmt == V4L2_PIX_FMT_JPEG)
+	pixfmt.colorspace = V4L2_COLORSPACE_JPEG;
+
+	v4l2_fmt.fmt.pix = pixfmt;
+	printf("fimc_v4l2_s_fmt_cap : width(%d) height(%d)\n", width, height);
+
+	/* Set up for capture */
+	if (ioctl(fp, VIDIOC_S_FMT, &v4l2_fmt) < 0) {
+		printf("ERR(%s):VIDIOC_S_FMT failed\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+int fimc_v4l2_s_fmt_is(int fp, int width, int height, unsigned int fmt, enum v4l2_field field)
+{
+	struct v4l2_format v4l2_fmt;
+	struct v4l2_pix_format pixfmt;
+
+	memset(&pixfmt, 0, sizeof(pixfmt));
+
+	v4l2_fmt.type = V4L2_BUF_TYPE_PRIVATE;
+
+	pixfmt.width = width;
+	pixfmt.height = height;
+	pixfmt.pixelformat = fmt;
+	pixfmt.field = field;
+
+	v4l2_fmt.fmt.pix = pixfmt;
+	printf("fimc_v4l2_s_fmt_is : width(%d) height(%d)\n", width, height);
+
+	/* Set up for capture */
+	if (ioctl(fp, VIDIOC_S_FMT, &v4l2_fmt) < 0) {
+		printf("ERR(%s):VIDIOC_S_FMT failed\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int fimc_v4l2_enum_fmt(int fp, unsigned int fmt)
+{
+	struct v4l2_fmtdesc fmtdesc;
+	int found = 0;
+
+	fmtdesc.type = V4L2_BUF_TYPE;
+	fmtdesc.index = 0;
+
+	while (ioctl(fp, VIDIOC_ENUM_FMT, &fmtdesc) == 0) {
+		if (fmtdesc.pixelformat == fmt) {
+			printf("passed fmt = %#x found pixel format[%d]: %s\n", fmt, fmtdesc.index, fmtdesc.description);
+			found = 1;
+			break;
+		}
+
+		fmtdesc.index++;
+	}
+
+	if (!found) {
+		printf("unsupported pixel format\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int fimc_v4l2_reqbufs(int fp, enum v4l2_buf_type type, int nr_bufs)
+{
+	struct v4l2_requestbuffers req;
+
+	req.count = nr_bufs;
+	req.type = type;
+	req.memory = V4L2_MEMORY_TYPE;
+
+	if (ioctl(fp, VIDIOC_REQBUFS, &req) < 0) {
+		printf("ERR(%s):VIDIOC_REQBUFS failed\n", __func__);
+		return -1;
+	}
+
+	return req.count;
+}
+
+static int fimc_v4l2_querybuf(int fp, struct SecBuffer *buffers, enum v4l2_buf_type type, int nr_frames, int num_plane)
+{
+	struct v4l2_buffer v4l2_buf;
+
+	int i, ret ;
+
+	for (i = 0; i < nr_frames; i++) {
+		v4l2_buf.type = type;
+		v4l2_buf.memory = V4L2_MEMORY_TYPE;
+		v4l2_buf.index = i;
+
+		ret = ioctl(fp, VIDIOC_QUERYBUF, &v4l2_buf); // query video buffer status
+		if (ret < 0) {
+			printf("ERR(%s):VIDIOC_QUERYBUF failed\n", __func__);
+			return -1;
+		}
+
+		buffers[i].size.s = v4l2_buf.length;
+
+		if ((buffers[i].virt.p = (char *)mmap(0, v4l2_buf.length, PROT_READ | PROT_WRITE, MAP_SHARED,
+			fp, v4l2_buf.m.offset)) < 0) {
+			printf("%s %d] mmap() failed",__func__, __LINE__);
+			return -1;
+		}
+		printf("buffers[%d].virt.p = %p v4l2_buf.length = %d\n", i, buffers[i].virt.p, v4l2_buf.length);
+	}
+	return 0;
+}
+
+static int fimc_v4l2_streamon(int fp)
+{
+	enum v4l2_buf_type type = V4L2_BUF_TYPE;
+	int ret;
+
+	ret = ioctl(fp, VIDIOC_STREAMON, &type);
+	if (ret < 0) {
+		printf("ERR(%s):VIDIOC_STREAMON failed\n", __func__);
+		return ret;
+	}
+
+	return ret;
+}
+
+static int fimc_v4l2_streamoff(int fp)
+{
+	enum v4l2_buf_type type = V4L2_BUF_TYPE;
+	int ret;
+
+	printf("%s :", __func__);
+	ret = ioctl(fp, VIDIOC_STREAMOFF, &type);
+	if (ret < 0) {
+		printf("ERR(%s):VIDIOC_STREAMOFF failed\n", __func__);
+		return ret;
+	}
+
+	return ret;
+}
+
+static int fimc_v4l2_qbuf(int fp, int index )
+{
+	struct v4l2_buffer v4l2_buf;
+	int ret;
+
+	v4l2_buf.type = V4L2_BUF_TYPE;
+	v4l2_buf.memory = V4L2_MEMORY_TYPE;
+	v4l2_buf.index = index;
+
+
+	ret = ioctl(fp, VIDIOC_QBUF, &v4l2_buf);
+	if (ret < 0) {
+		printf("ERR(%s):VIDIOC_QBUF failed\n", __func__);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int fimc_v4l2_dqbuf(int fp, int num_plane)
+{
+	struct v4l2_buffer v4l2_buf;
+	int ret;
+
+	v4l2_buf.type = V4L2_BUF_TYPE;
+	v4l2_buf.memory = V4L2_MEMORY_TYPE;
+
+	ret = ioctl(fp, VIDIOC_DQBUF, &v4l2_buf);
+	if (ret < 0) {
+		printf("ERR(%s):VIDIOC_DQBUF failed, dropped frame\n", __func__);
+		return ret;
+	}
+
+	return v4l2_buf.index;
+}
+
+static int fimc_v4l2_g_ctrl(int fp, unsigned int id)
+{
+	struct v4l2_control ctrl;
+	int ret;
+
+	ctrl.id = id;
+
+	ret = ioctl(fp, VIDIOC_G_CTRL, &ctrl);
+	if (ret < 0) {
+		printf("ERR(%s): VIDIOC_G_CTRL(id = 0x%x (%d)) failed, ret = %d\n",
+			 __func__, id, id-V4L2_CID_PRIVATE_BASE, ret);
+		return ret;
+	}
+
+	return ctrl.value;
+}
+
+static int fimc_v4l2_s_ctrl(int fp, unsigned int id, unsigned int value)
+{
+	struct v4l2_control ctrl;
+	int ret;
+
+	ctrl.id = id;
+	ctrl.value = value;
+
+	ret = ioctl(fp, VIDIOC_S_CTRL, &ctrl);
+	if (ret < 0) {
+		printf("ERR(%s):VIDIOC_S_CTRL(id = %#x (%d), value = %d) failed ret = %d\n",
+		 __func__, id, id-V4L2_CID_PRIVATE_BASE, value, ret);
+
+		return ret;
+	}
+
+	return ctrl.value;
+}
+
+static int fimc_v4l2_s_ext_ctrl(int fp, unsigned int id, void *value)
+{
+	struct v4l2_ext_controls ctrls;
+	struct v4l2_ext_control ctrl;
+	int ret;
+
+	ctrl.id = id;
+
+	ctrls.ctrl_class = V4L2_CTRL_CLASS_CAMERA;
+	ctrls.count = 1;
+	ctrls.controls = &ctrl;
+
+	ret = ioctl(fp, VIDIOC_S_EXT_CTRLS, &ctrls);
+	if (ret < 0)
+		printf("ERR(%s):VIDIOC_S_EXT_CTRLS failed\n", __func__);
+
+	return ret;
+}
+
+
+
+static int fimc_v4l2_g_parm(int fp, struct v4l2_streamparm *streamparm)
+{
+	int ret;
+
+	streamparm->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+	ret = ioctl(fp, VIDIOC_G_PARM, streamparm);
+	if (ret < 0) {
+		printf("ERR(%s):VIDIOC_G_PARM failed\n", __func__);
+		return -1;
+	}
+
+	printf("%s : timeperframe: numerator %d, denominator %d\n", __func__,
+			streamparm->parm.capture.timeperframe.numerator,
+			streamparm->parm.capture.timeperframe.denominator);
+
+	return 0;
+}
+
+static int fimc_v4l2_s_parm(int fp, struct v4l2_streamparm *streamparm)
+{
+	int ret;
+
+	streamparm->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+	ret = ioctl(fp, VIDIOC_S_PARM, streamparm);
+	if (ret < 0) {
+		printf("ERR(%s):VIDIOC_S_PARM failed\n", __func__);
+		return ret;
+	}
+
+	return 0;
+}
+
+int CreateCamera(int index)
+{
+	printf("%s :\n", __func__);
+	int ret = 0;
+
+	m_cam_fd = open(CAMERA_DEV_NAME, O_RDWR);
+	if (m_cam_fd < 0) {
+		printf("ERR(%s):Cannot open %s (error : %s)\n", __func__, CAMERA_DEV_NAME, strerror(errno));
+		return -1;
+	}
+	printf("%s: open(%s) --> m_cam_fd %d\n", __func__, CAMERA_DEV_NAME, m_cam_fd);
+
+	ret = fimc_v4l2_querycap(m_cam_fd);
+	CHECK(ret);
+	if (!fimc_v4l2_enuminput(m_cam_fd, index)) {
+		printf("m_cam_fd(%d) fimc_v4l2_enuminput fail\n", m_cam_fd);
+		return -1;
+	}
+	ret = fimc_v4l2_s_input(m_cam_fd, index);
+	CHECK(ret);
+
+
+	return 0;
+}
+void DestroyCamera()
+{
+	if (m_cam_fd > -1) {
+		close(m_cam_fd);
+		m_cam_fd = -1;
+	}
+
+}
+
+int startPreview(void)
+{
+	int i;
+	//v4l2_streamparm streamparm;
+	printf("%s :\n", __func__);
+
+	if (m_cam_fd <= 0) {
+		printf("ERR(%s):Camera was closed\n", __func__);
+		return -1;
+	}
+
+	memset(&m_events_c, 0, sizeof(m_events_c));
+	m_events_c.fd = m_cam_fd;
+	m_events_c.events = POLLIN | POLLERR;
+
+	/* enum_fmt, s_fmt sample */
+	int ret = fimc_v4l2_enum_fmt(m_cam_fd,m_preview_v4lformat);
+	CHECK(ret);
+
+	ret = fimc_v4l2_s_fmt(m_cam_fd, CAMERA_PREVIEW_WIDTH, CAMERA_PREVIEW_HEIGHT, m_preview_v4lformat, V4L2_FIELD_ANY, PREVIEW_NUM_PLANE);
+	CHECK(ret);
+
+	fimc_v4l2_s_fmt_is(m_cam_fd, CAMERA_PREVIEW_WIDTH, CAMERA_PREVIEW_HEIGHT,
+		m_preview_v4lformat, (enum v4l2_field) IS_MODE_PREVIEW_STILL);
+
+	CHECK(ret);
+
+	ret = fimc_v4l2_s_ctrl(m_cam_fd, V4L2_CID_CACHEABLE, 1);
+	CHECK(ret);
+
+	ret = fimc_v4l2_reqbufs(m_cam_fd, V4L2_BUF_TYPE, MAX_BUFFERS);
+	CHECK(ret);
+
+	ret = fimc_v4l2_querybuf(m_cam_fd, m_buffers_preview, V4L2_BUF_TYPE, MAX_BUFFERS, PREVIEW_NUM_PLANE);
+	CHECK(ret);
+
+	/* start with all buffers in queue  to capturer video */
+	for (i = 0; i < MAX_BUFFERS; i++) {
+		ret = fimc_v4l2_qbuf(m_cam_fd,  i);
+		CHECK(ret);
+	}
+
+	ret = fimc_v4l2_streamon(m_cam_fd);
+	CHECK(ret);
+
+	printf("%s: got the first frame of the preview\n", __func__);
+
+	return 0;
+}
+
+int stopPreview(void)
+{
+	int ret;
+
+	if (m_cam_fd <= 0) {
+		printf("ERR(%s):Camera was closed\n", __func__);
+		return -1;
+	}
+
+	ret = fimc_v4l2_streamoff(m_cam_fd);
+	CHECK(ret);
+
+	close_buffers(m_buffers_preview, MAX_BUFFERS);
+
+	fimc_v4l2_reqbufs(m_cam_fd, V4L2_BUF_TYPE, 0);
+
+	return ret;
+}
+
+void initScreen(unsigned char *fb_mem, struct fb_var_screeninfo fbvar, struct fb_fix_screeninfo fbfix ,
+int fbfd)
+{
+
+
+    int i, j, k, t;
+    int bits_per_pixel;
+    int line_length;
+    int coor_x, coor_y;
+    int cols = 0, rows = 0;
+int mem_size;
+    char *pData, *data;
+    char r, g, b;
+    unsigned long bmpdata[1280*800];
+    unsigned long pixel;
+    unsigned char *pfbmap;
+    unsigned long *ptr;
+
+    char* file_name = "bike.bmp";
+
+    read_bmp(file_name, &pData, &data, &cols, &rows);
+
+    printf("Bitmap : cols = %d, rows = %d\n", cols, rows);
+
+
+    for(j = 0; j < rows; j++)
+    {
+        k = j * cols * 3;
+        t = (rows - 1 - j) * cols; // 가로 size가 작을 수도 있다.
+
+        for(i = 0; i < cols; i++)
+        {
+            b = *(data + (k + i * 3));
+            g = *(data + (k + i * 3 + 1));
+            r = *(data + (k + i * 3 + 2));
+
+            pixel = ((r<<16) | (g<<8) | b);
+            bmpdata[t+i] = pixel;
+        }
+    }
+    close_bmp(&pData); // 메모리 해제
+
+
+    screen_width = fbvar.xres;
+    screen_height = fbvar.yres;
+    bits_per_pixel = fbvar.bits_per_pixel;
+    line_length  = fbfix.line_length;
+    mem_size = line_length * screen_height;
+
+    printf("screen_width : %d\n", screen_width);
+    printf("screen_height : %d\n", screen_height);
+    printf("bits_per_pixel : %d\n", bits_per_pixel);
+    printf("line_length : %d\n", line_length);
+
+    pfbmap = (unsigned char *) mmap(0, mem_size, PROT_READ|PROT_WRITE, MAP_SHARED, fbfd, 0);
+
+	// distance control
+	int offset_x = 640;
+	int offset_y = (screen_height - rows)/2;
+
+
+
+    if ((unsigned)pfbmap == (unsigned)-1)
+    {
+        perror("fbdev mmap\n");
+        exit(1);
+    }
+    for(coor_y = 0; coor_y < screen_height; coor_y++)
+    {
+
+        ptr =  (unsigned long *)pfbmap + (screen_width * coor_y);
+
+        for(coor_x = 0; coor_x < screen_width; coor_x++){
+            *ptr++ = 0xFFFFFF;
+        }
+    }
+
+    for(coor_y = offset_y; coor_y < rows +offset_y; coor_y++) {
+
+        ptr = (unsigned long*)pfbmap + (screen_width * coor_y);
+
+	for(coor_x = 0; coor_x < offset_x; coor_x++){
+            *ptr++ = 0xFFFFFF;
+        }
+
+        for (coor_x = offset_x; coor_x < cols +offset_x; coor_x++) {
+
+            *ptr++ = bmpdata[coor_x-offset_x + (coor_y-offset_y)*cols];
+
+        }
+    }
+
+    munmap( pfbmap, mem_size);
+  //  close( fbfd);
+
+
+}
+
+
+static void yuv_a_rgb(unsigned char y, unsigned char u, unsigned char v,
+               unsigned char* r, unsigned char* g, unsigned char* b)
+{
+	int amp=250;
+	double R,G,B;
+
+	R=amp*(0.004565*y+0.000001*u+0.006250*v-0.872);
+	G=amp*(0.004565*y-0.001542*u-0.003183*v+0.531);
+	B=amp*(0.004565*y+0.007935*u+/*0.000000*v*/-1.088);
+	//printf("\nR = %f   G = %f   B = %f", R, G, B);
+
+	if (R < 0)
+		R=0;
+	if (G < 0)
+		G=0;
+	if (B < 0)
+		B=0;
+
+	if (R > 255)
+		R=255;
+	if (G > 255)
+		G=255;
+	if (B > 255)
+		B=255;
+
+	*r=(unsigned char)(R);
+	*g=(unsigned char)(G);
+	*b=(unsigned char)(B);
+
+}
+
+static void Draw(unsigned char *displayFrame, unsigned char *videoFrame,int videoWidth, int videoHeight, \
+				 int dFrameWidth,int dFrameHeight)
+{
+	int    x,y;
+	unsigned char *offsetU;
+	unsigned char *offsetV;
+	unsigned char Y,U,V;
+	unsigned char R,G,B;
+	int lineLeng ;
+	lineLeng = dFrameWidth*4;
+
+	offsetV = videoFrame + videoWidth*videoHeight;
+	offsetU = videoFrame + videoWidth*videoHeight + videoWidth*videoHeight/2;
+
+	for ( y = 0 ; y < videoHeight ; y++ )
+	{
+		for(x = 0; x < videoWidth ; x++ )
+		{
+			Y = *(videoFrame + x + y*videoWidth);
+			U = *(offsetU + (x + y*videoWidth)/2);
+			V = *(offsetV + (x + y*videoWidth)/2);
+
+			yuv_a_rgb(Y, U, V, &R, &G, &B);
+
+			displayFrame[y*lineLeng + x*4 + 0] = R;
+			displayFrame[y*lineLeng + x*4 + 1] = G;
+			displayFrame[y*lineLeng + x*4 + 2] = B;
+		}
+	}
+}
+static void DrawFromRGB565(unsigned char *displayFrame, unsigned char *videoFrame,int videoWidth, int videoHeight, \
+				 int dFrameWidth,int dFrameHeight)
+{
+	int    x,y;
+	int lineLeng ;
+	unsigned short *videptrTemp;
+	unsigned short *videoptr = videoFrame;
+	int temp;
+	lineLeng = dFrameWidth*4;
+
+	for ( y = 0 ; y < videoHeight ; y++ )
+	{
+		for(x = 0; x < videoWidth ;)
+		{
+
+			videptrTemp =  videoptr + videoWidth*y + x ;
+			temp = y*lineLeng + x*4;
+			displayFrame[temp + 2] = (unsigned char)((*videptrTemp & 0xF800) >> 8)  ;
+			displayFrame[temp + 1] = (unsigned char)((*videptrTemp & 0x07E0) >> 3)  ;
+			displayFrame[temp + 0] = (unsigned char)((*videptrTemp & 0x001F) << 3)  ;
+
+			videptrTemp++;
+			temp +=4;
+			displayFrame[temp + 2] = (unsigned char)((*videptrTemp & 0xF800) >> 8)  ;
+			displayFrame[temp + 1] = (unsigned char)((*videptrTemp & 0x07E0) >> 3)  ;
+			displayFrame[temp + 0] = (unsigned char)((*videptrTemp & 0x001F) << 3)  ;
+
+			videptrTemp++;
+			temp +=4;
+			displayFrame[temp + 2] = (unsigned char)((*videptrTemp & 0xF800) >> 8)  ;
+			displayFrame[temp + 1] = (unsigned char)((*videptrTemp & 0x07E0) >> 3)  ;
+			displayFrame[temp + 0] = (unsigned char)((*videptrTemp & 0x001F) << 3)  ;
+
+			videptrTemp++;
+			temp +=4;
+			displayFrame[temp + 2] = (unsigned char)((*videptrTemp & 0xF800) >> 8)  ;
+			displayFrame[temp + 1] = (unsigned char)((*videptrTemp & 0x07E0) >> 3)  ;
+			displayFrame[temp + 0] = (unsigned char)((*videptrTemp & 0x001F) << 3)  ;
+			x+=4;
+		}
+	}
+}
+
+#define  FBDEV_FILE "/dev/fb0"
+
+
+void camera_start(){
+
+  int     fb_fd;
+	int	    ret;
+	int     index;
+
+
+	struct  fb_var_screeninfo fbvar;
+	struct  fb_fix_screeninfo fbfix;
+	unsigned char   *fb_mapped;
+	int             mem_size;
+
+
+	if( access(FBDEV_FILE, F_OK) )
+	{
+		printf("%s: access error\n", FBDEV_FILE);
+		return 1;
+	}
+
+	if( (fb_fd = open(FBDEV_FILE, O_RDWR)) < 0)
+	{
+		printf("%s: open error\n", FBDEV_FILE);
+		return 1;
+	}
+
+	if( ioctl(fb_fd, FBIOGET_VSCREENINFO, &fbvar) )
+	{
+		printf("%s: ioctl error - FBIOGET_VSCREENINFO \n", FBDEV_FILE);
+		goto fb_err;
+	}
+
+	if( ioctl(fb_fd, FBIOGET_FSCREENINFO, &fbfix) )
+	{
+		printf("%s: ioctl error - FBIOGET_FSCREENINFO \n", FBDEV_FILE);
+		goto fb_err;
+	}
+
+	screen_width    =   fbvar.xres;
+	screen_height   =   fbvar.yres;
+	bits_per_pixel  =   fbvar.bits_per_pixel;
+	line_length     =   fbfix.line_length;
+
+	printf("screen_width : %d\n", screen_width);
+	printf("screen_height : %d\n", screen_height);
+	printf("bits_per_pixel : %d\n", bits_per_pixel);
+	printf("line_length : %d\n", line_length);
+
+	mem_size    =   screen_width * screen_height * 4;
+	fb_mapped   =   (unsigned char *)mmap(0, mem_size,
+		 PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
+	if (fb_mapped < 0)
+	{
+		printf("mmap error!\n");
+		goto fb_err;
+	}
+
+	initScreen(fb_mapped,fbvar,fbfix ,fb_fd);
+
+	CreateCamera(0);
+	startPreview();
+
+	while(1)
+	{
+		ret = fimc_poll(&m_events_c);
+		CHECK_PTR(ret);
+		index = fimc_v4l2_dqbuf(m_cam_fd, 1);
+
+		DrawFromRGB565(fb_mapped, m_buffers_preview[index].virt.p,CAMERA_PREVIEW_WIDTH,\
+		CAMERA_PREVIEW_HEIGHT,screen_width,screen_height);
+
+		ret = fimc_v4l2_qbuf(m_cam_fd,index);
+	}
+
+	stopPreview();
+	DestroyCamera();
+	fb_err:
+	close(fb_fd);
+
+	exit(1);
+}
+
+
+
+/*****************************************CAMERA********************************************/
+
+
+
 //****************************************main*************************************
 int main(void){
-	
+
 
 	int limitSpeed=0;
 	int distance = 920220;
@@ -1645,7 +2551,7 @@ int main(void){
         int j=0;
 	char words1[3][15] = {"kangin220","aaaaaaaaa","bbbbbbbbb"};
 	char words2[3][15] = {"sunho220","cccccccccc","dddd"};
-	
+
 	/*for(j=0;j<3;j++){
 	textLED(row1,words1[j],row2,words2[j]);
 	sleep(1);
@@ -1654,7 +2560,7 @@ int main(void){
 	if(keyMatrix()==1){
 	textLED(row1,words1[0],row2,words2[0]);
 	dotMatrix(speed);
- 
+
 
  	limitSpeed = dipsw();
 	if(limitSpeed == 1){
@@ -1671,18 +2577,18 @@ int main(void){
 	}
 	fndLed(distance);
 	oLed(direction);
-	
+
 	busled(speed);
 	cled(speed);
 	speedBuzzer(speed,limitSpeed);
 
 }
 	else{
-	
+
 	pwBuzzer();
 	printf("Wrong passward!!!!");
 	}
+	
 
 	return 0;
 }
-
