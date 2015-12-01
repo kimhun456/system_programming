@@ -2536,9 +2536,7 @@ void camera_start(){
 
 /*****************************************CAMERA********************************************/
 
-
-
-//****************************************main*************************************
+/*******************************************MAIN******************************************/
 int main(void){
 
 
@@ -2581,6 +2579,7 @@ int main(void){
 	busled(speed);
 	cled(speed);
 	speedBuzzer(speed,limitSpeed);
+	//camera_start();
 
 }
 	else{
@@ -2588,7 +2587,7 @@ int main(void){
 	pwBuzzer();
 	printf("Wrong passward!!!!");
 	}
-	
+
 
 	return 0;
 }

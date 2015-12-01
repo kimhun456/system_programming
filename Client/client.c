@@ -12,14 +12,16 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#define MAX_THREADS 1000
+#define MAX_THREADS 10000
 #define MAX_MESSAGE 2000
 
+// ip , port
 char *ip = "52.69.176.156";
 int port = 1337;
 int sock;
 struct sockaddr_in server;
-char server_reply[MAX_MESSAGE];
+
+
 pthread_t p_thread[MAX_THREADS];
 int thr_id[MAX_THREADS];
 int count = 0;
@@ -31,17 +33,41 @@ void * t_function(void *data)
     printf("Thread Start\n");
 
     char str[MAX_MESSAGE] ;
+    int count = 0;
     strcpy(str,(char *)data);
     char *ptr;
+    char device[MAX_MESSAGE];
+    char type[MAX_MESSAGE];
+    char params[10][MAX_MESSAGE];
+    int i;
 
-    printf("함수 호출 전의 스트링 : %s\n" , str) ;
+    printf("input string is  : %s\n" , str) ;
 
     ptr = strtok(str, "/");
 
+    strcpy(device,ptr);
+
+    ptr = strtok(NULL, "/");
+    strcpy(type,ptr);
+
+
     while(ptr != NULL ){
 
-            printf( "%s\n" , ptr);
-            ptr = strtok(NULL, "/");
+        ptr = strtok(NULL, "/");
+
+        if(ptr!=NULL){
+            strcpy(params[count],ptr);
+        }
+
+        count++;
+    }
+    count --;
+
+
+    printf("device : %s\n",device);
+    printf("type : %s\n",type);
+    for(i=0;i<count;i++){
+        printf("params %d : %s\n",i+1,params[i]);
     }
 
 
@@ -50,12 +76,17 @@ void * t_function(void *data)
 
     printf("Thread end\n");
 
+    for(int i=0;i<MAX_MESSAGE;i++){
+        str[i] = '\0';
+    }
+
     return (void*)data;
 }
 
 int main(int argc , char *argv[])
 {
 
+    char server_reply[MAX_MESSAGE];
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
     if (sock == -1)
@@ -111,8 +142,9 @@ int main(int argc , char *argv[])
         // 초기화
         count++;
 
+
         if(count > MAX_THREADS){
-          count=count%MAX_THREADS;
+            count=count%MAX_THREADS;
         }
         // for(i=0;i<2000;i++){
         //   server_reply[i]='\0';
