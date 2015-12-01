@@ -12,8 +12,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+/*
+thread and message variable
+*/
 #define MAX_THREADS 10000
 #define MAX_MESSAGE 2000
+
 
 // ip , port
 char *ip = "52.69.176.156";
@@ -21,35 +25,31 @@ int port = 1337;
 int sock;
 struct sockaddr_in server;
 
-
 pthread_t p_thread[MAX_THREADS];
-int thr_id[MAX_THREADS];
+int p_thread_id[MAX_THREADS];
 int count = 0;
-
 
 // thread 가 실행하는 function
 void * t_function(void *data)
 {
     printf("Thread Start\n");
-
     char str[MAX_MESSAGE] ;
     int count = 0;
     strcpy(str,(char *)data);
     char *ptr;
     char device[MAX_MESSAGE];
     char type[MAX_MESSAGE];
+
+    // maximum 10
     char params[10][MAX_MESSAGE];
     int i;
 
     printf("input string is  : %s\n" , str) ;
 
     ptr = strtok(str, "/");
-
     strcpy(device,ptr);
-
     ptr = strtok(NULL, "/");
     strcpy(type,ptr);
-
 
     while(ptr != NULL ){
 
@@ -58,23 +58,22 @@ void * t_function(void *data)
         if(ptr!=NULL){
             strcpy(params[count],ptr);
         }
-
         count++;
     }
     count --;
 
-
     printf("device : %s\n",device);
     printf("type : %s\n",type);
+
     for(i=0;i<count;i++){
         printf("params %d : %s\n",i+1,params[i]);
     }
 
-
-    //1초 쉬게 해줌
     //sleep(1);
 
     printf("Thread end\n");
+
+    // initialized
 
     for(int i=0;i<MAX_MESSAGE;i++){
         str[i] = '\0';
@@ -126,9 +125,9 @@ int main(int argc , char *argv[])
 
         printf("Before Thread Created\n");
 
-        thr_id[count] = pthread_create(&p_thread[count], NULL, t_function, (void *)server_reply);
+        p_thread_id[count] = pthread_create(&p_thread[count], NULL, t_function, (void *)server_reply);
 
-        if (thr_id[count] < 0)
+        if (p_thread_id[count] < 0)
         {
             perror("thread create error : ");
             exit(0);
@@ -154,24 +153,3 @@ int main(int argc , char *argv[])
     close(sock);
     return 0;
 }
-
-
-/*
- printf("Enter message : ");
-
- fgets(message , 2000, stdin);
-
- message[strlen(message)-1]='\0';
-
-
- //Send some data
- if( send(sock , message , strlen(message) , 0) < 0)
- {
- puts("Send failed");
- return 1;
- }
- for(i=0;i<2000;i++){
- message[i]='\0';
- }
-
- */
