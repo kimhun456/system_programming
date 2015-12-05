@@ -18,6 +18,27 @@
 #include "SecBuffer.h"
 #include "camera.h"
 #include "bitmap.h"
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+
+/*
+thread and message variable
+*/
+#define MAX_THREADS 10000
+#define MAX_MESSAGE 2000
+
+// ip , port
+char *ip = "52.69.176.156";
+int port = 1337;
+int sock;
+struct sockaddr_in server;
+int limitSpeed=0;
+
+pthread_t p_thread[MAX_THREADS];
+int p_thread_id[MAX_THREADS];
+int count = 0;
+
 
 #define DIPSW_DRIVER_NAME		"/dev/cndipsw"
 #define BUS_LED_ON	1
@@ -104,7 +125,7 @@ static int  text_fd ;
 int keyMatrix(void)
 {
 	int rdata ;
-        int pwArr[4]= {1,3,5,7};
+  int pwArr[4]= {1,3,5,7};
 	int fd;
 	int save[4]={0};
 	int i=0;
@@ -283,7 +304,7 @@ int fndDisp(int driverfile, int num , int dotflag,int durationSec)
 		if ( cSelCounter >= FND_MAX_FND_NUM )
 			cSelCounter = 0;
 
-		//usleep(FND_ONE_SEG_DISPLAY_TIME_USEC);
+		usleep(FND_ONE_SEG_DISPLAY_TIME_USEC);
 
 		loopCounter++;
 		if ( loopCounter > totalCount )
@@ -428,7 +449,7 @@ int oledreset(void)
 
 	wdata = OLED_RST_BIT_MASK;
 	write(OLED_fd,&wdata , 2 );
-	//usleep(2000);
+	usleep(2000);
 	wdata = OLED_DEFAULT_MASK;
 	write(OLED_fd,&wdata , 2 );
 	return OLED_TRUE;
@@ -1008,7 +1029,7 @@ int text_setDDRAMAddr(int x , int y)
 		return TEXTLCD_FALSE;
 	}
 //	printf("setDDRAMAddr w :0x%X\n",cmd|SET_DDRAM_ADD_DEF);
-	//usleep(1000);
+	usleep(1000);
 	return TEXTLCD_TRUE;
 }
 
@@ -1236,7 +1257,7 @@ int displayDotLed(int driverfile , int num ,int timeS)
 		if ( cSelCounter >= (DOTMATRIX_MAX_COLUMN_NUM-1))
 			cSelCounter = 1;
 
-		//usleep(DOTMATRIX_ONE_LINE_TIME_U);
+		usleep(DOTMATRIX_ONE_LINE_TIME_U);
 
 		loopCounter++;
 		if ( loopCounter > totalCount )
@@ -1298,6 +1319,8 @@ void dotMatrix(int speed)
 int textLED(int row1, char* words1, int row2, char* words2)
 {
 
+	//sleep(1);
+
 	int nCmdMode;
 	int bCursorOn, bBlink, nline1 , nline2;
 	int nColumn1=0;
@@ -1305,8 +1328,8 @@ int textLED(int row1, char* words1, int row2, char* words2)
 	char strWtext1[TEXTLCD_COLUMN_NUM+1];
 	char strWtext2[TEXTLCD_COLUMN_NUM+1];
 
-	//printf("row1:%d,row2:%d \n",row1,row2);
-	//printf("words1:%s,words2:%s\n",words1,words2);
+	printf("row1:%d,row2:%d \n",row1,row2);
+	printf("words1:%s,words2:%s\n",words1,words2);
 
 
 
@@ -1316,6 +1339,9 @@ int textLED(int row1, char* words1, int row2, char* words2)
 		nline2 = row2;
 		//printf("nline1 :%d\n",nline1);
 		//printf("nline2 :%d\n",nline2);
+		//
+		// clearScreen(nline1);
+		// clearScreen(nline2);
 
 		if (strlen(words1) > TEXTLCD_COLUMN_NUM )
 		{
@@ -1339,55 +1365,6 @@ int textLED(int row1, char* words1, int row2, char* words2)
 
 		}
 
-
-	/*else if (  argv[1][0] == 'c' )
-	{
-		nCmdMode =  CMD_CURSOR_POS ;
-		if ( argc < 6 )
-		{
-			perror(" c argument number is short.\n");
-			doHelp();
-			return 1;
-		}
-		bCursorOn = atoi(argv[2]);
-
-		bBlink = atoi(argv[3]);
-
-		nline = atoi(argv[4]);
-		if ( (nline != 1 ) && (nline != 2 ))
-		{
-			perror("line para is worng.\n");
-			doHelp();
-			return 1;
-		}
-		nColumn = atoi(argv[5]);
-		if ( nColumn >15 )
-		{
-			perror(" nColumn max number is 15.\n");
-			doHelp();
-			return 1;
-		}
-	}
-	else if ( argv[1][0] == 'r' )
-	{
-		nCmdMode =  CMD_CEAR_SCREEN;
-		nline = 0;
-		if ( argc == 3 )
-		{
-			nline = atoi(argv[2]);
-			if ( (nline != 1)&& (nline != 2))
-				nline = 0;
-		}
-		else
-			nline = 0;
-	}
-	else
-	{
-		perror(" not supported option. \n");
-		doHelp();
-		return 1;
-	}*/
-
 	// open  driver
 	text_fd = open(TEXTLCD_DRIVER_NAME,O_RDWR);
 	if ( text_fd < 0 )
@@ -1395,6 +1372,8 @@ int textLED(int row1, char* words1, int row2, char* words2)
 		perror("driver open error.\n");
 		return 1;
 	}
+
+
 	functionSet();
 
 	switch ( nCmdMode )
@@ -1403,10 +1382,10 @@ int textLED(int row1, char* words1, int row2, char* words2)
 		clearScreen(0);
 		//printf("nline:%d ,nColumn:%d\n",nline,nColumn);
 		text_setDDRAMAddr(nColumn1, nline1);
-		//usleep(2000);
+		usleep(2000);
 		writeStr(strWtext1);
 		text_setDDRAMAddr(nColumn2, nline2);
-		//usleep(2000);
+		usleep(2000);
 		writeStr(strWtext2);
 		break;
 	/*case CMD_CURSOR_POS:
@@ -1419,7 +1398,7 @@ int textLED(int row1, char* words1, int row2, char* words2)
 		break;
 
 	}
-	//printf("str1:%s,str2:%s\n",strWtext1,strWtext2);
+	printf("str1:%s,str2:%s\n",strWtext1,strWtext2);
 
 	close(text_fd);
 
@@ -2451,7 +2430,7 @@ static void DrawFromRGB565(unsigned char *displayFrame, unsigned char *videoFram
 #define  FBDEV_FILE "/dev/fb0"
 
 
-void camera_start(){
+int camera_start(){
 
   int     fb_fd;
 	int	    ret;
@@ -2537,57 +2516,204 @@ void camera_start(){
 /*****************************************CAMERA********************************************/
 
 /*******************************************MAIN******************************************/
-int main(void){
 
 
-	int limitSpeed=0;
-	int distance = 920220;
-	int direction=1;
-	int speed = 22;
-	int row1=1;
-	int row2=2;
-        int j=0;
-	char words1[3][15] = {"kangin220","aaaaaaaaa","bbbbbbbbb"};
-	char words2[3][15] = {"sunho220","cccccccccc","dddd"};
 
-	/*for(j=0;j<3;j++){
-	textLED(row1,words1[j],row2,words2[j]);
-	sleep(1);
-	}*/
-
-	if(keyMatrix()==1){
-	textLED(row1,words1[0],row2,words2[0]);
-	dotMatrix(speed);
+// thread 가 실행하는 function
+void * t_function(void *data)
+{
 
 
- 	limitSpeed = dipsw();
-	if(limitSpeed == 1){
-	limitSpeed = 10;
-	}
-	else if(limitSpeed == 3){
-	limitSpeed = 20;
-	}
-	else if(limitSpeed == 7){
-	limitSpeed = 30;
-	}
-	else{
-	limitSpeed = 40;
-	}
-	fndLed(distance);
-	oLed(direction);
 
-	busled(speed);
-	cled(speed);
-	speedBuzzer(speed,limitSpeed);
-	//camera_start();
+    printf("Thread Start\n");
+    char str[MAX_MESSAGE] ;
+    int count = 0;
+    strcpy(str,(char *)data);
+    char *ptr;
+    char device[MAX_MESSAGE];
+    char type[MAX_MESSAGE];
+		int i=0;
+		int j;
+    // maximum 10
+    char params[10][MAX_MESSAGE];
 
+
+    printf("input string is  : %s\n" , str) ;
+
+    ptr = strtok(str, "/");
+    strcpy(device,ptr);
+    ptr = strtok(NULL, "/");
+    strcpy(type,ptr);
+
+    while(ptr != NULL ){
+
+        ptr = strtok(NULL, "/");
+
+        if(ptr!=NULL){
+            strcpy(params[count],ptr);
+        }
+        count++;
+    }
+    count --;
+
+    printf("device : %s\n",device);
+    printf("type : %s\n",type);
+
+		if(!strcmp("tlcd",type)){
+			textLED(1,params[0],2,params[1]);
+		}
+
+		if(!strcmp("busled",type)){
+			int speed = atoi(params[0]);
+			busled(speed);
+		}
+
+		if(!strcmp("dotmatrix",type)){
+			int speed = atoi(params[0]);
+			dotMatrix(speed);
+		}
+
+		if(!strcmp("fndLed",type)){
+			int distance = atoi(params[0]);
+			fndLed(distance);
+		}
+
+		if(!strcmp("oLed",type)){
+			int direction = atoi(params[0]);
+			oLed(direction);
+		}
+
+		if(!strcmp("cled",type)){
+			int speed = atoi(params[0]);
+			cled(speed);
+		}
+
+
+		if(!strcmp("speed",type)){
+			int speed = atoi(params[0]);
+			speedBuzzer(speed,limitSpeed);
+		}
+
+		if(!strcmp("camera",type)){
+			camera_start();
+		}
+
+
+
+    for(i=0;i<count;i++){
+        printf("params %d : %s\n",i+1,params[i]);
+    }
+
+    //sleep(1);
+
+    printf("Thread end\n");
+
+    // initialized
+
+    for(i=0;i<MAX_MESSAGE;i++){
+        str[i] = '\0';
+				for(j=0;j<10;j++){
+					params[j][i];
+				}
+    }
+
+    return (void*)data;
 }
-	else{
 
-	pwBuzzer();
-	printf("Wrong passward!!!!");
-	}
+int main(int argc , char *argv[])
+{
+
+	printf("please insert the pasword\n");
+
+	textLED(1,"please",2,"password");
+		if(keyMatrix()==0){
+			pwBuzzer();
+			textLED(1,"wrong",2,"password");
+		}
+
+    char server_reply[MAX_MESSAGE];
+    //Create socket
+    sock = socket(AF_INET , SOCK_STREAM , 0);
+    if (sock == -1)
+    {
+        printf("Could not create socket");
+    }
+    printf("Socket created\n");
 
 
-	return 0;
+    // PORT AND IP setting
+    server.sin_addr.s_addr = inet_addr(ip);
+    server.sin_family = AF_INET;
+    server.sin_port = htons( port );
+
+		textLED(1,"123456789",2,"987654321");
+
+    //Connect to remote server
+    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
+    {
+        perror("connect failed. Error");
+        return 1;
+    }
+
+    printf("Connected\n");
+
+    //keep communicating with server
+    while(count < MAX_THREADS)
+    {
+        //Receive a data from the server
+        if( recv(sock , server_reply , MAX_MESSAGE , 0) < 0)
+        {
+            puts("recv failed");
+            break;
+        }
+
+
+				limitSpeed = dipsw();
+
+				if(limitSpeed == 1){
+					limitSpeed = 10;
+				}
+				else if(limitSpeed == 3){
+					limitSpeed = 20;
+				}
+				else if(limitSpeed == 7){
+					limitSpeed = 30;
+				}
+				else{
+					limitSpeed = 40;
+				}
+
+
+        // printf("Received data : ");
+        //
+        // printf("%s\n",server_reply);
+
+        printf("Before Thread Created\n");
+
+        p_thread_id[count] = pthread_create(&p_thread[count], NULL, t_function, (void *)server_reply);
+
+        if (p_thread_id[count] < 0)
+        {
+            perror("thread create error : ");
+            exit(0);
+        }
+
+        // 식별번호 p_thread[count] 를 가지는 쓰레드를 detach
+        // 시켜준다.
+
+        pthread_detach(p_thread[count]);
+
+        // 초기화
+        count++;
+
+        if(count > MAX_THREADS){
+            count=count%MAX_THREADS;
+        }
+        // for(i=0;i<2000;i++){
+        //   server_reply[i]='\0';
+        // }
+    }
+
+    close(sock);
+    return 0;
 }
