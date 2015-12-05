@@ -246,6 +246,10 @@ int clearScreen(int nline)
 			return FALSE;
 		return TRUE;
 	}
+
+	// please input
+	// password
+
 	else if (nline == 1)
 	{
 		setDDRAMAddr(0,1);

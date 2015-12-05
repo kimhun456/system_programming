@@ -65,6 +65,11 @@ void * t_function(void *data)
     printf("device : %s\n",device);
     printf("type : %s\n",type);
 
+
+
+    
+
+
     for(i=0;i<count;i++){
         printf("params %d : %s\n",i+1,params[i]);
     }
