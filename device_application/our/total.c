@@ -35,9 +35,20 @@ int sock;
 struct sockaddr_in server;
 int limitSpeed=0;
 
+int dotmatrix_fd;
+int dot_flag=0;
+
+int fnd_fd;
+int fnd_flag=0;
+
 pthread_t p_thread[MAX_THREADS];
+pthread_mutex_t  mutex = PTHREAD_MUTEX_INITIALIZER;
 int p_thread_id[MAX_THREADS];
 int count = 0;
+int camera = 0;
+int camera_fd_fd;
+int camera_flag=1;
+//p_thread_id camera_thread = NULL;
 
 
 #define DIPSW_DRIVER_NAME		"/dev/cndipsw"
@@ -127,6 +138,8 @@ static int  tlcd_fd ;
 
 
 #define TLCD_SIG_BIT_E            0x0400
+
+
 #define TLCD_SIG_BIT_RW            0x0200
 #define TLCD_SIG_BIT_RS            0x0100
 
@@ -308,9 +321,32 @@ int tlcd_clearScreen(int nline)
 	return TLCD_TRUE;
 }
 
+int tlcd_displayMode(int bCursor, int bCursorblink, int blcd  )
+{
+    unsigned short cmd  = 0;
 
+    if ( bCursor)
+    {
+        cmd = TLCD_DIS_CURSOR;
+    }
 
-void textLcd(int row1 , char *str1 , int row2 , char *str2)
+    if (bCursorblink )
+    {
+        cmd |= TLCD_DIS_CUR_BLINK;
+    }
+
+    if ( blcd )
+    {
+        cmd |= TLCD_DIS_LCD;
+    }
+
+    if (!tlcd_writeCmd(cmd | TLCD_DIS_DEF))
+        return TLCD_FALSE;
+
+    return TLCD_TRUE;
+}
+
+void textLcd(int row1 , char *str1 , int row2 , char *str2, int mode)
 {
 
     int nCmdMode;
@@ -319,6 +355,8 @@ void textLcd(int row1 , char *str1 , int row2 , char *str2)
     char strWtext1[TLCD_COLUMN_NUM+1];
     char strWtext2[TLCD_COLUMN_NUM+1];
 
+
+    if(mode ==1){
 
         nCmdMode =  TLCD_CMD_TXT_WRITE ;
 
@@ -329,10 +367,10 @@ void textLcd(int row1 , char *str1 , int row2 , char *str2)
         }
 
         else{
-					strncpy(strWtext1,str1,TLCD_COLUMN_NUM);
-					strWtext1[TLCD_COLUMN_NUM] = '\0';
+                    strncpy(strWtext1,str1,TLCD_COLUMN_NUM);
+                    strWtext1[TLCD_COLUMN_NUM] = '\0';
 
-				}
+                }
           //  strncpy(strWtext1,str1,TLCD_COLUMN_NUM);
 
 
@@ -344,11 +382,39 @@ void textLcd(int row1 , char *str1 , int row2 , char *str2)
 
         }
         else{
-					strncpy(strWtext2,str2,TLCD_COLUMN_NUM);
-					strWtext2[TLCD_COLUMN_NUM] = '\0';
+                    strncpy(strWtext2,str2,TLCD_COLUMN_NUM);
+                    strWtext2[TLCD_COLUMN_NUM] = '\0';
 
-	          //  strcpy(strWtext2,str2);
-				}
+              //  strcpy(strWtext2,str2);
+                }
+
+    }
+
+
+    else if (mode ==2){
+
+        nCmdMode =  TLCD_CMD_CURSOR_POS ;
+        bCursorOn = 1;
+        bBlink = 1;
+        nline = 2;
+        nColumn = 12;
+
+        }
+
+
+
+    else if (mode ==3){
+            nCmdMode =  TLCD_CMD_CEAR_SCREEN;
+            /*if ( argc == 3 )
+            {
+                nline = atoi(argv[2]);
+                if ( (nline != 1)&& (nline != 2))
+                    nline = 0;
+            }*/
+            //else
+            nline = 0;
+
+    }
 
 
     // open  driver
@@ -358,17 +424,34 @@ void textLcd(int row1 , char *str1 , int row2 , char *str2)
         perror("driver open error.\n");
         return 1;
     }
-
     tlcd_functionSet();
-    tlcd_clearScreen(1);
-    tlcd_clearScreen(2);
 
-    tlcd_setDDRAMAddr(nColumn, row1);
-    usleep(2000);
-    tlcd_writeStr(strWtext1);
-    tlcd_setDDRAMAddr(nColumn, row2);
-    usleep(2000);
-    tlcd_writeStr(strWtext2);
+    switch ( nCmdMode )
+    {
+    case TLCD_CMD_TXT_WRITE:
+//
+        tlcd_functionSet();
+        tlcd_clearScreen(1);
+        tlcd_clearScreen(2);
+
+
+        tlcd_setDDRAMAddr(nColumn, row1);
+        usleep(2000);
+        tlcd_writeStr(strWtext1);
+        tlcd_setDDRAMAddr(nColumn, row2);
+        usleep(2000);
+        tlcd_writeStr(strWtext2);
+        break;
+
+    case TLCD_CMD_CURSOR_POS:
+        tlcd_displayMode(bCursorOn, bBlink, TLCD_TRUE);
+        tlcd_setDDRAMAddr(nline-1, nColumn);
+        break;
+    case TLCD_CMD_CEAR_SCREEN:
+        tlcd_clearScreen(nline);
+        break;
+    }
+
 
     close(tlcd_fd);
 
@@ -378,7 +461,22 @@ void textLcd(int row1 , char *str1 , int row2 , char *str2)
 
 
 
-
+void tlcd_clearAll(){
+    textLcd(0 , NULL , 0 , NULL,2);
+    textLcd(0 , NULL , 0 , NULL,2);
+    textLcd(0 , NULL , 0 , NULL,2);
+    textLcd(0 , NULL , 0 , NULL,2);
+    textLcd(1," ",2," ",1);
+    textLcd(1," ",2," ",1);
+    textLcd(1," ",2," ",1);
+    textLcd(1," ",2," ",3);
+    textLcd(1," ",2," ",3);
+    textLcd(1," ",2," ",3);
+    textLcd(0 , NULL , 0 , NULL,2);
+    textLcd(0 , NULL , 0 , NULL,2);
+    textLcd(0 , NULL , 0 , NULL,2);
+    textLcd(0 , NULL , 0 , NULL,2);
+}
 
 
 
@@ -389,11 +487,16 @@ void textLcd(int row1 , char *str1 , int row2 , char *str2)
 
 
 
+void camera_stop(){
+
+    camera_flag=0;
+
+
+}
 
 
 
-
-int keyMatrix(void)
+int keyMatrix()
 {
 	int rdata ;
   int pwArr[4]= {1,3,5,7};
@@ -402,7 +505,7 @@ int keyMatrix(void)
 	int i=0;
 	int counter=0;
 	int flag=0;
-
+  char str[10];
 
 	// open  driver
 	fd = open(KEY_MATRIX_DRIVER_NAME,O_RDWR);
@@ -416,21 +519,37 @@ int keyMatrix(void)
  	{
 		read(fd,&rdata,4);
 
-		if(rdata){
-                printf("*");
+    if(i==0){
+      strcpy(str,"PW : *");
+    }else if(i==1){
+      strcpy(str,"PW : **");
+    }else if(i==2){
+      strcpy(str,"PW : ***");
+    }else if(i==3){
+      strcpy(str,"PW : ****");
+    }
 
+		if(rdata){
+      printf("%s\n",str);
+      tlcd_clearAll();
+      textLcd(1,str,2," ",1);
+
+    //printf("*");
 		save[i]=rdata;
 		i++;
 
-		usleep(300000);
-		fflush(stdout);
+		usleep(250000);
+		//fflush(stdout);
 	 	}
 
 		if(i==4){
-			printf("\n");
+			//printf("\n");
 			break;
 			}
 	}
+
+
+  //strcpy(str," ");
 	for(i=0;i<4;i++){
 		if(save[i]!=pwArr[i]){
 
@@ -529,7 +648,7 @@ int fndkbhit(void)
 
 #define FND_ONE_SEG_DISPLAY_TIME_USEC	1000
 // return 1 => exit  , 0 => success
-int fndDisp(int driverfile, int num , int dotflag,int durationSec)
+int fndDisp(int driverfile, int num , int dotflag,int durationSec, int flag)
 {
 	int cSelCounter,loopCounter;
 	int temp , totalCount, i ;
@@ -574,12 +693,17 @@ int fndDisp(int driverfile, int num , int dotflag,int durationSec)
 		cSelCounter++;
 		if ( cSelCounter >= FND_MAX_FND_NUM )
 			cSelCounter = 0;
-
-		usleep(FND_ONE_SEG_DISPLAY_TIME_USEC);
+      if(flag==1){
+  		usleep(FND_ONE_SEG_DISPLAY_TIME_USEC);
+      }
 
 		loopCounter++;
 		if ( loopCounter > totalCount )
 			break;
+
+    if(fnd_flag==1){
+      break;
+    }
 
 		if (fndkbhit())
 		{
@@ -604,39 +728,37 @@ int fndDisp(int driverfile, int num , int dotflag,int durationSec)
 #define FND_MODE_STATIC_DIS		0
 #define FND_MODE_TIME_DIS		1
 #define FND_MODE_COUNT_DIS		2
-void fndLed(int distance)
+void fndLed(int distance, int flag)
 {
-	int fd;
 	int mode ;
 	int number,counter;
 	int durationtime;
 
 
 
+	mode = FND_MODE_STATIC_DIS;
 
-		mode = FND_MODE_STATIC_DIS;
+	durationtime = 10;
 
-		durationtime = 3;
+	number = distance;
 
-		number = distance;
-
-
+  fnd_flag=1;
+  usleep(1000);
+  fnd_flag = 0;
 
 
 	printf("distance :%d\n",number);
 	// open  driver
-	fd = open(FND_DRIVER_NAME,O_RDWR);
 
 	fndchangemode(1);
 
-		fndDisp(fd, number , 0,durationtime);
+		fndDisp(fnd_fd, number , 0,durationtime , flag);
 
 
 
 		//LABEL_ERR:
 
 	fndchangemode(0);
-	close(fd);
 
 
 }
@@ -1080,8 +1202,8 @@ int OledInit(void)
 //#define OLED_MODE_RESET		3
 #define OLED_MODE_IMAGE		4
 //#define OLED_MODE_INIT		5
-#define OLED_RIGHT 1
-#define OLED_LEFT 0
+#define OLED_UNLOCK 1
+#define OLED_LOCK 0
 
 static int OLED_Mode;
 
@@ -1101,10 +1223,10 @@ void oLed(int direction)
 	OLED_fd = open(OLED_DRIVER_NAME,O_RDWR);
 
 
-		if(direction == OLED_RIGHT)
-		oledimageLoading("right.img");
+		if(direction == OLED_UNLOCK)
+		oledimageLoading("unlock.img");
 		else
-		oledimageLoading("left.img");
+		oledimageLoading("lock.img");
 
 
 	close(OLED_fd);
@@ -1182,7 +1304,7 @@ int dotmatrix_kbhit(void)
 
 #define DOTMATRIX_ONE_LINE_TIME_U 	1000
 // exit return => 0 , success return => 1
-int displayDotLed(int driverfile , int num ,int timeS)
+int displayDotLed(int driverfile , int num ,int timeS, int flag)
 {
 	int cSelCounter,loopCounter;
 	int highChar , lowChar;
@@ -1212,12 +1334,18 @@ int displayDotLed(int driverfile , int num ,int timeS)
 		cSelCounter++;
 		if ( cSelCounter >= (DOTMATRIX_MAX_COLUMN_NUM-1))
 			cSelCounter = 1;
-
-		usleep(DOTMATRIX_ONE_LINE_TIME_U);
+      if(flag){
+  		    usleep(DOTMATRIX_ONE_LINE_TIME_U);
+        //sleep(100);
+      }
 
 		loopCounter++;
-		if ( loopCounter > totalCount )
+		if ( loopCounter > totalCount)
 			break;
+
+    if(dot_flag){
+      break;
+    }
 
 		if (dotmatrix_kbhit())
 		{
@@ -1241,11 +1369,12 @@ int displayDotLed(int driverfile , int num ,int timeS)
 	return 1;
 }
 //***********************************dotmatrix****************************
-void dotMatrix(int speed)
+void dotMatrix(int speed, int flag)
 {
 	int i=0;
-	int durationTime=2 ;
-	int dotmatrix_fd;
+  int durationTime = 5;
+
+
 
 	//printf("exit 'q' \n");
 
@@ -1254,19 +1383,13 @@ void dotMatrix(int speed)
 
 	dotMatrixchangemode(1);
 	// open  driver
-	dotmatrix_fd = open(DOTMATRIX_DRIVER_NAME,O_RDWR);
-	if ( dotmatrix_fd < 0 )
-	{
-		perror("driver  open error.\n");
-		exit(1);
-	}
+  dot_flag=1;
+  usleep(1000);
+  dot_flag=0;
 
-
-	displayDotLed(dotmatrix_fd , speed ,durationTime);// i need  int driverfile , int num ,int timeS
-
+	displayDotLed(dotmatrix_fd , speed ,durationTime, flag);// i need  int driverfile , int num ,int timeS
 
 	dotMatrixchangemode(0);
-	close(dotmatrix_fd);
 
 
 }
@@ -1362,11 +1485,16 @@ void cled(int speed)
 	colorArray[COLOR_INDEX_GREEN_LED] =(unsigned short)0;
 	colorArray[COLOR_INDEX_BLUE_LED] =(unsigned short)0;
 	}
-	else{
+	else if(speed>0){
 	colorArray[COLOR_INDEX_REG_LED] =(unsigned short)0;
 	colorArray[COLOR_INDEX_GREEN_LED] =(unsigned short)0;
 	colorArray[COLOR_INDEX_BLUE_LED] =(unsigned short)100;
-	}
+}else{
+  colorArray[COLOR_INDEX_REG_LED] =(unsigned short)0;
+	colorArray[COLOR_INDEX_GREEN_LED] =(unsigned short)0;
+	colorArray[COLOR_INDEX_BLUE_LED] =(unsigned short)0;
+
+}
 
 
 	//printf("index(%d) r(%d) g(%d) b(%d)\n",colorArray[COLOR_INDEX_LED],colorArray[COLOR_INDEX_REG_LED],colorArray[COLOR_INDEX_GREEN_LED],colorArray[COLOR_INDEX_BLUE_LED]);
@@ -1453,7 +1581,7 @@ void busled(int speed)
 	write(fd,&wdata,4);
         */
 
-	if(speed < 4){
+	if(speed < 4 && speed >0){
 	wdata = 0x01;
 	}
 	else if(speed >=4 && speed < 8){
@@ -1474,6 +1602,9 @@ void busled(int speed)
 	else if(speed >=24 && speed < 28){
 	wdata = 0x7f;
 	}
+  else if(speed ==0){
+    wdata = 0x00;
+  }
 	else{
 	wdata = 0xff;
 	}
@@ -2306,7 +2437,6 @@ int init(){
 	unsigned char   *fb_mapped;
 	int             mem_size;
 
-
 	if( access(FBDEV_FILE, F_OK) )
 	{
 		printf("%s: access error\n", FBDEV_FILE);
@@ -2351,12 +2481,19 @@ int init(){
 	}
 
 	initScreen(fb_mapped,fbvar,fbfix ,fb_fd);
+
+
+  fndLed(0,0);
+  dotMatrix(0,0);
+  busled(0);
+  oLed(0);
+  cled(0);
+  tlcd_clearAll();
 }
 
 
 int camera_start(){
 
-  int     fb_fd;
 	int	    ret;
 	int     index;
 
@@ -2373,22 +2510,22 @@ int camera_start(){
 		return 1;
 	}
 
-	if( (fb_fd = open(FBDEV_FILE, O_RDWR)) < 0)
+	if( (camera_fd_fd = open(FBDEV_FILE, O_RDWR)) < 0)
 	{
 		printf("%s: open error\n", FBDEV_FILE);
 		return 1;
 	}
 
-	if( ioctl(fb_fd, FBIOGET_VSCREENINFO, &fbvar) )
+	if( ioctl(camera_fd_fd, FBIOGET_VSCREENINFO, &fbvar) )
 	{
 		printf("%s: ioctl error - FBIOGET_VSCREENINFO \n", FBDEV_FILE);
-		goto fb_err;
+		//goto fb_err;
 	}
 
-	if( ioctl(fb_fd, FBIOGET_FSCREENINFO, &fbfix) )
+	if( ioctl(camera_fd_fd, FBIOGET_FSCREENINFO, &fbfix) )
 	{
 		printf("%s: ioctl error - FBIOGET_FSCREENINFO \n", FBDEV_FILE);
-		goto fb_err;
+		//goto fb_err;
 	}
 
 	screen_width    =   fbvar.xres;
@@ -2403,19 +2540,20 @@ int camera_start(){
 
 	mem_size    =   screen_width * screen_height * 4;
 	fb_mapped   =   (unsigned char *)mmap(0, mem_size,
-		 PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
+		 PROT_READ|PROT_WRITE, MAP_SHARED, camera_fd_fd, 0);
 	if (fb_mapped < 0)
 	{
 		printf("mmap error!\n");
-		goto fb_err;
+		//goto fb_err;
 	}
 
-	initScreen(fb_mapped,fbvar,fbfix ,fb_fd);
+  	initScreen(fb_mapped,fbvar,fbfix ,camera_fd_fd);
+    	initScreen(fb_mapped,fbvar,fbfix ,camera_fd_fd);
 
 	CreateCamera(0);
 	startPreview();
 
-	while(1)
+	while(camera_flag)
 	{
 		ret = fimc_poll(&m_events_c);
 		CHECK_PTR(ret);
@@ -2430,9 +2568,12 @@ int camera_start(){
 	stopPreview();
 	DestroyCamera();
 	fb_err:
-	close(fb_fd);
+	close(camera_fd_fd);
 
-	exit(1);
+  sleep(1);
+
+  init();
+
 }
 
 
@@ -2450,7 +2591,11 @@ void * t_function(void *data)
     printf("Thread Start\n");
     char str[MAX_MESSAGE] ;
     int count = 0;
+
+    pthread_mutex_lock(&mutex);
+    memset(str,0,sizeof(str));
     strcpy(str,(char *)data);
+
     char *ptr;
     char device[MAX_MESSAGE];
     char type[MAX_MESSAGE];
@@ -2458,7 +2603,6 @@ void * t_function(void *data)
 		int j;
     // maximum 10
     char params[10][MAX_MESSAGE];
-
 
     printf("input string is  : %s\n" , str) ;
 
@@ -2478,11 +2622,14 @@ void * t_function(void *data)
     }
     count --;
 
+    pthread_mutex_unlock(&mutex);
+
     printf("device : %s\n",device);
     printf("type : %s\n",type);
 
 		if(!strcmp("tlcd",type)){
-			textLcd(1,params[0],2,params[1]);
+      tlcd_clearAll();
+			textLcd(1,params[0],2,params[1],1);
 		}
 
 		if(!strcmp("busled",type)){
@@ -2490,17 +2637,18 @@ void * t_function(void *data)
 			busled(speed);
 		}
 
-		if(!strcmp("dotmatrix",type)){
+		if(!strcmp("dot",type)){
 			int speed = atoi(params[0]);
-			dotMatrix(speed);
+
+			dotMatrix(speed,1);
 		}
 
-		if(!strcmp("fndLed",type)){
+		if(!strcmp("fndled",type)){
 			int distance = atoi(params[0]);
-			fndLed(distance);
+			fndLed(distance,1);
 		}
 
-		if(!strcmp("oLed",type)){
+		if(!strcmp("oled",type)){
 			int direction = atoi(params[0]);
 			oLed(direction);
 		}
@@ -2510,7 +2658,6 @@ void * t_function(void *data)
 			cled(speed);
 		}
 
-
 		if(!strcmp("speed",type)){
 			int speed = atoi(params[0]);
 			speedBuzzer(speed,limitSpeed);
@@ -2518,40 +2665,37 @@ void * t_function(void *data)
 
 		if(!strcmp("camera",type)){
 			camera_start();
+      //camera_thread= pthread_self();
+
+      camera = count;
+
 		}
 
+    if(!strcmp("init",type)){
+			init();
+		}
 
+    if(!strcmp("stop",type)){
+			camera_stop();
+		}
 
     for(i=0;i<count;i++){
         printf("params %d : %s\n",i+1,params[i]);
     }
 
-    //sleep(1);
-
-    printf("Thread end\n");
-
     // initialized
 
     for(i=0;i<MAX_MESSAGE;i++){
-        str[i] = '\0';
+        str[i] = NULL;
 				for(j=0;j<10;j++){
-					params[j][i]= '\0';
+					params[j][i]= NULL;
 				}
-    }
 
+    }
+    memset(data,0,sizeof(data));
+    printf("Thread end\n");
     return (void*)data;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -2561,41 +2705,55 @@ void * t_function(void *data)
 int main(int argc , char *argv[])
 {
 
-	printf("please insert the pasword\n");
+      int i;
+      char server_reply[MAX_MESSAGE];
+      char tmp[MAX_MESSAGE];
 
-	textLcd(1,"please",2,"password");
+      fnd_fd = open(FND_DRIVER_NAME,O_RDWR);
+    	dotmatrix_fd = open(DOTMATRIX_DRIVER_NAME,O_RDWR);
+      if ( dotmatrix_fd < 0 )
+    	{
+    		perror("driver dot open error.\n");
+    		exit(1);
+    	}
+
+	printf("please_insert_pasword\n");
+
 	init();
 
+  textLcd(1,"please_input",2,"password",1);
 	while(1){
 
 		if(keyMatrix() == 0 ){
-			textLcd(1,"wrong",2,"password");
+			textLcd(1,"wrong",2,"password",1);
 			pwBuzzer();
 		}
 		else{
-			textLcd(1,"Good",2,"password");
+      oLed(1);
+			textLcd(1,"Good",2,"password",1);
 			break;
 		}
 
 	}
 
-
-    char server_reply[MAX_MESSAGE];
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
+
     if (sock == -1)
     {
         printf("Could not create socket");
     }
     printf("Socket created\n");
-
+    sleep(1);
+    tlcd_clearAll();
+    textLcd(1,"Server",2,"Connected",1);
 
     // PORT AND IP setting
     server.sin_addr.s_addr = inet_addr(ip);
     server.sin_family = AF_INET;
     server.sin_port = htons( port );
 
-		textLcd(1,"123456789",2,"987654321");
+		//textLcd(1,"123456789",2,"987654321");
 
     //Connect to remote server
     if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
@@ -2609,6 +2767,16 @@ int main(int argc , char *argv[])
     //keep communicating with server
     while(count < MAX_THREADS)
     {
+
+      // usleep(100);
+      //
+
+      pthread_mutex_lock(&mutex);
+      for(i=0;i<2000;i++){
+        server_reply[i]='\0';
+      }
+      pthread_mutex_unlock(&mutex);
+
         //Receive a data from the server
         if( recv(sock , server_reply , MAX_MESSAGE , 0) < 0)
         {
@@ -2616,6 +2784,10 @@ int main(int argc , char *argv[])
             break;
         }
 
+        strcpy(tmp,server_reply);
+
+
+        printf("%s\n",server_reply);
 
 				limitSpeed = dipsw();
 
@@ -2639,7 +2811,8 @@ int main(int argc , char *argv[])
 
         printf("Before Thread Created\n");
 
-        p_thread_id[count] = pthread_create(&p_thread[count], NULL, t_function, (void *)server_reply);
+
+        p_thread_id[count] = pthread_create(&p_thread[count], NULL, t_function, (void *)tmp);
 
         if (p_thread_id[count] < 0)
         {
@@ -2647,22 +2820,18 @@ int main(int argc , char *argv[])
             exit(0);
         }
 
-        // 식별번호 p_thread[count] 를 가지는 쓰레드를 detach
-        // 시켜준다.
 
         pthread_detach(p_thread[count]);
 
-        // 초기화
         count++;
 
         if(count > MAX_THREADS){
             count=count%MAX_THREADS;
         }
-        // for(i=0;i<2000;i++){
-        //   server_reply[i]='\0';
-        // }
-    }
 
+    }
     close(sock);
+  	close(dotmatrix_fd);
+  	close(fnd_fd);
     return 0;
 }

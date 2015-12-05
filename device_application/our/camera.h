@@ -15,7 +15,7 @@
 
 
 #define CAMERA_PREVIEW_WIDTH       640
-#define CAMERA_PREVIEW_HEIGHT      480
+#define CAMERA_PREVIEW_HEIGHT      800
 #define MAX_BUFFERS     8
 
 #define MAX_PLANES      (1)
