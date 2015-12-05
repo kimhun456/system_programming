@@ -29,7 +29,7 @@ static int  fd ;
 #define CLEAR_DISPLAY		0x0001
 #define CURSOR_AT_HOME		0x0002
 
-// Entry Mode set 
+// Entry Mode set
 #define MODE_SET_DEF		0x0004
 #define MODE_SET_DIR_RIGHT	0x0002
 #define MODE_SET_SHIFT		0x0001
@@ -45,7 +45,7 @@ static int  fd ;
 #define CUR_DIS_SHIFT		0x0008
 #define CUR_DIS_DIR			0x0004
 
-// set DDRAM  address 
+// set DDRAM  address
 #define SET_DDRAM_ADD_DEF	0x0080
 
 // read bit
@@ -63,8 +63,8 @@ static int  fd ;
 
 /***************************************************
 read /write  sequence
-write cycle 
-RS,(R/W) => E (rise) => Data => E (fall) 
+write cycle
+RS,(R/W) => E (rise) => Data => E (fall)
 
 ***************************************************/
 int IsBusy(void)
@@ -131,7 +131,7 @@ int setDDRAMAddr(int x , int y)
 	if ( cmd >= 0x80)
 		return FALSE;
 
-	
+
 //	printf("setDDRAMAddr w1 :0x%X\n",cmd);
 
 	if (!writeCmd(cmd | SET_DDRAM_ADD_DEF))
@@ -231,14 +231,14 @@ int writeStr(char* str)
 }
 
 #define LINE_NUM			2
-#define COLUMN_NUM			16			
+#define COLUMN_NUM			16
 int clearScreen(int nline)
 {
 	int i;
 	if (nline == 0)
 	{
 		if(IsBusy())
-		{	
+		{
 			perror("clearScreen error\n");
 			return FALSE;
 		}
@@ -247,22 +247,22 @@ int clearScreen(int nline)
 		return TRUE;
 	}
 	else if (nline == 1)
-	{	
+	{
 		setDDRAMAddr(0,1);
 		for(i = 0; i <= COLUMN_NUM ;i++ )
 		{
 			writeCh((unsigned char)' ');
-		}	
+		}
 		setDDRAMAddr(0,1);
 
 	}
 	else if (nline == 2)
-	{	
+	{
 		setDDRAMAddr(0,2);
 		for(i = 0; i <= COLUMN_NUM ;i++ )
 		{
 			writeCh((unsigned char)' ');
-		}	
+		}
 		setDDRAMAddr(0,2);
 	}
 	return TRUE;
@@ -275,7 +275,7 @@ void doHelp(void)
 	printf(" ex) tlcdtest w 0 cndi_text_test :=>display 'cndi text test' at line 1 \n");
 	printf("tlcdtest c on|off blink line column : \n");
 	printf(" => cursor set on|off =>1 or 0 , b => blink 1|0 , line column line position \n");
-	printf("tlcdtset c  1 1 2 12  :=> display blink cursor at 2 line , 12 column.\n"); 
+	printf("tlcdtset c  1 1 2 12  :=> display blink cursor at 2 line , 12 column.\n");
 	printf("tlcdtest r [line] : => clear screen or clear line \n");
 	printf("tlcdtest r  : => clear screen \n");
 	printf("tlcdtest r 1: => clear line 1 \n");
@@ -294,15 +294,15 @@ int main(int argc , char **argv)
 	int nCmdMode;
 	int bCursorOn, bBlink, nline , nColumn;
 	char strWtext[COLUMN_NUM+1];
-	
+
 	if (argc < 2 )
 	{
 		perror(" Args number is less than 2\n");
 		doHelp();
 		return 1;
 	}
-	
-	if ( argv[1][0] == 'w' ) 
+
+	if ( argv[1][0] == 'w' )
 	{
 		nCmdMode =  CMD_TXT_WRITE ;
 		if (argc < 4 )
@@ -334,7 +334,7 @@ int main(int argc , char **argv)
 	else if (  argv[1][0] == 'c' )
 	{
 		nCmdMode =  CMD_CURSOR_POS ;
-		if ( argc < 6 ) 
+		if ( argc < 6 )
 		{
 			perror(" c argument number is short.\n");
 			doHelp();
@@ -352,7 +352,7 @@ int main(int argc , char **argv)
 			return 1;
 		}
 		nColumn = atoi(argv[5]);
-		if ( nColumn >15 ) 
+		if ( nColumn >15 )
 		{
 			perror(" nColumn max number is 15.\n");
 			doHelp();
@@ -377,8 +377,8 @@ int main(int argc , char **argv)
 		doHelp();
 		return 1;
 	}
-	
-	// open  driver 
+
+	// open  driver
 	fd = open(DRIVER_NAME,O_RDWR);
 	if ( fd < 0 )
 	{
@@ -405,6 +405,6 @@ int main(int argc , char **argv)
 	}
 
 	close(fd);
-	
+
 	return 0;
 }
