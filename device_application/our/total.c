@@ -46,8 +46,6 @@ int count = 0;
 #define BUS_MAX_LED_NO		8
 #define BUS_LED_DRIVER_NAME		"/dev/cnled"
 
-
-
 #define COLOR_DRIVER_NAME		"/dev/cncled"
 
 
@@ -67,58 +65,331 @@ int count = 0;
 
 
 
-#define TEXTLCD_TRUE		1
-#define TEXTLCD_FALSE		0
 
-#define TEXTLCD_SUCCESS		0
-#define TEXTLCD_FAIL		1
 
-static int  text_fd ;
 
-#define TEXTLCD_DRIVER_NAME		"/dev/cntlcd"
+/*
+	TLCD define
+
+*/
+#define TLCD_TRUE        1
+#define TLCD_FALSE        0
+
+#define TLCD_SUCCESS        0
+#define TLCD_FAIL        1
+
+static int  tlcd_fd ;
+
+#define TLCD_LINE_NUM            2
+#define TLCD_COLUMN_NUM            16
+
+
+#define TLCD_CMD_TXT_WRITE        0
+#define TLCD_CMD_CURSOR_POS        1
+#define TLCD_CMD_CEAR_SCREEN        2
+
+
+#define TLCD_DRIVER_NAME        "/dev/cntlcd"
 /******************************************************************************
 *
 *      TEXT LCD FUNCTION
 *
 ******************************************************************************/
-#define TEXTLCD_CLEAR_DISPLAY		0x0001
-#define TEXTLCD_CURSOR_AT_HOME		0x0002
+#define TLCD_CLEAR_DISPLAY        0x0001
+#define TLCD_CURSOR_AT_HOME        0x0002
 
 // Entry Mode set
-#define TEXTLCD_MODE_SET_DEF		0x0004
-#define TEXTLCD_MODE_SET_DIR_RIGHT	0x0002
-#define TEXTLCD_MODE_SET_SHIFT		0x0001
+#define TLCD_MODE_SET_DEF        0x0004
+#define TLCD_MODE_SET_DIR_RIGHT    0x0002
+#define TLCD_MODE_SET_SHIFT        0x0001
 
 // Display on off
-#define TEXTLCD_DIS_DEF				0x0008
-#define TEXTLCD_DIS_LCD				0x0004
-#define TEXTLCD_DIS_CURSOR			0x0002
-#define TEXTLCD_DIS_CUR_BLINK		0x0001
+#define TLCD_DIS_DEF                0x0008
+#define TLCD_DIS_LCD                0x0004
+#define TLCD_DIS_CURSOR            0x0002
+#define TLCD_DIS_CUR_BLINK        0x0001
 
 // shift
-#define TEXTLCD_CUR_DIS_DEF			0x0010
-#define TEXTLCD_CUR_DIS_SHIFT		0x0008
-#define TEXTLCD_CUR_DIS_DIR			0x0004
+#define TLCD_CUR_DIS_DEF            0x0010
+#define TLCD_CUR_DIS_SHIFT        0x0008
+#define TLCD_CUR_DIS_DIR            0x0004
 
 // set DDRAM  address
-#define TEXTLCD_SET_DDRAM_ADD_DEF	0x0080
+#define TLCD_SET_DDRAM_ADD_DEF    0x0080
 
 // read bit
-#define TEXTLCD_BUSY_BIT			0x0080
-#define TEXTLCD_DDRAM_ADD_MASK		0x007F
+#define TLCD_BUSY_BIT            0x0080
+#define TLCD_DDRAM_ADD_MASK        0x007F
 
 
-#define TEXTLCD_DDRAM_ADDR_LINE_1	0x0000
-#define TEXTLCD_DDRAM_ADDR_LINE_2	0x0040
+#define TLCD_DDRAM_ADDR_LINE_1    0x0000
+#define TLCD_DDRAM_ADDR_LINE_2    0x0040
 
 
-#define TEXTLCD_SIG_BIT_E			0x0400
-#define TEXTLCD_SIG_BIT_RW			0x0200
-#define TEXTLCD_SIG_BIT_RS			0x0100
+#define TLCD_SIG_BIT_E            0x0400
+#define TLCD_SIG_BIT_RW            0x0200
+#define TLCD_SIG_BIT_RS            0x0100
+
+
+
+
+
+
+
+
+
+
+
+//********************************TLCD****************************
+
+
+/*
+  TLCD function
+*/
+int tlcd_isbusy(void)
+{
+    unsigned short wdata, rdata;
+
+    wdata = TLCD_SIG_BIT_RW;
+    write(tlcd_fd ,&wdata,2);
+
+    wdata = TLCD_SIG_BIT_RW | TLCD_SIG_BIT_E;
+    write(tlcd_fd ,&wdata,2);
+
+    read(tlcd_fd,&rdata ,2);
+
+    wdata = TLCD_SIG_BIT_RW;
+    write(tlcd_fd,&wdata,2);
+
+    if (rdata &  TLCD_BUSY_BIT)
+        return TLCD_TRUE;
+
+    return TLCD_FALSE;
+}
+int tlcd_writeCmd(unsigned short cmd)
+{
+    unsigned short wdata ;
+
+    if ( tlcd_isbusy())
+        return TLCD_FALSE;
+
+    wdata = cmd;
+    write(tlcd_fd ,&wdata,2);
+
+    wdata = cmd | TLCD_SIG_BIT_E;
+    write(tlcd_fd ,&wdata,2);
+
+    wdata = cmd ;
+    write(tlcd_fd ,&wdata,2);
+
+    return TLCD_TRUE;
+}
+
+int tlcd_setDDRAMAddr(int x , int y)
+{
+    unsigned short cmd = 0;
+//    printf("x :%d , y:%d \n",x,y);
+    if(tlcd_isbusy())
+    {
+        perror("setDDRAMAddr busy error.\n");
+        return TLCD_FALSE;
+
+    }
+
+    if ( y == 1 )
+    {
+        cmd = TLCD_DDRAM_ADDR_LINE_1 +x;
+    }
+    else if(y == 2 )
+    {
+        cmd = TLCD_DDRAM_ADDR_LINE_2 +x;
+    }
+    else
+        return TLCD_FALSE;
+
+    if ( cmd >= 0x80)
+        return TLCD_FALSE;
+
+
+//    printf("setDDRAMAddr w1 :0x%X\n",cmd);
+
+    if (!tlcd_writeCmd(cmd | TLCD_SET_DDRAM_ADD_DEF))
+    {
+        perror("setDDRAMAddr error\n");
+        return TLCD_FALSE;
+    }
+//    printf("setDDRAMAddr w :0x%X\n",cmd|SET_DDRAM_ADD_DEF);
+    usleep(1000);
+    return TLCD_TRUE;
+}
+
+
+int tlcd_writeCh(unsigned short ch)
+{
+    unsigned short wdata =0;
+
+    if ( tlcd_isbusy())
+        return TLCD_FALSE;
+
+    wdata = TLCD_SIG_BIT_RS | ch;
+    write(tlcd_fd ,&wdata,2);
+
+    wdata = TLCD_SIG_BIT_RS | ch | TLCD_SIG_BIT_E;
+    write(tlcd_fd ,&wdata,2);
+
+    wdata = TLCD_SIG_BIT_RS | ch;
+    write(tlcd_fd ,&wdata,2);
+    usleep(1000);
+    return TLCD_TRUE;
+
+}
+
+
+
+int tlcd_functionSet(void)
+{
+    unsigned short cmd = 0x0038; // 5*8 dot charater , 8bit interface , 2 line
+
+    if (!tlcd_writeCmd(cmd))
+        return TLCD_FALSE;
+    return TLCD_TRUE;
+}
+
+int tlcd_writeStr(char* str)
+{
+    unsigned char wdata;
+    int i;
+    for(i =0; i < strlen(str) ;i++ )
+    {
+        if (str[i] == '_')
+            wdata = (unsigned char)' ';
+        else
+            wdata = str[i];
+        tlcd_writeCh(wdata);
+    }
+    return TLCD_TRUE;
+
+}
+
+
+int tlcd_clearScreen(int nline)
+{
+	int i;
+	if (nline == 0)
+	{
+		if(tlcd_isbusy())
+		{
+			perror("clearScreen error\n");
+			return TLCD_FALSE;
+		}
+		if (!tlcd_writeCmd(TLCD_CLEAR_DISPLAY))
+			return TLCD_FALSE;
+		return TLCD_TRUE;
+	}
+	else if (nline == 1)
+	{
+		tlcd_setDDRAMAddr(0,1);
+		for(i = 0; i <= TLCD_COLUMN_NUM ;i++ )
+		{
+			tlcd_writeCh((unsigned char)' ');
+		}
+		tlcd_setDDRAMAddr(0,1);
+
+	}
+	else if (nline == 2)
+	{
+		tlcd_setDDRAMAddr(0,2);
+		for(i = 0; i <= TLCD_COLUMN_NUM ;i++ )
+		{
+			tlcd_writeCh((unsigned char)' ');
+		}
+		tlcd_setDDRAMAddr(0,2);
+	}
+	return TLCD_TRUE;
+}
+
+
+
+void textLcd(int row1 , char *str1 , int row2 , char *str2)
+{
+
+    int nCmdMode;
+    int bCursorOn, bBlink, nline ;
+    int nColumn=0;
+    char strWtext1[TLCD_COLUMN_NUM+1];
+    char strWtext2[TLCD_COLUMN_NUM+1];
+
+
+        nCmdMode =  TLCD_CMD_TXT_WRITE ;
+
+        if (strlen(str1) > TLCD_COLUMN_NUM )
+        {
+            strncpy(strWtext1,str1,TLCD_COLUMN_NUM);
+            strWtext1[TLCD_COLUMN_NUM] = '\0';
+        }
+
+        else{
+					strncpy(strWtext1,str1,TLCD_COLUMN_NUM);
+					strWtext1[TLCD_COLUMN_NUM] = '\0';
+
+				}
+          //  strncpy(strWtext1,str1,TLCD_COLUMN_NUM);
+
+
+        if(strlen(str2) > TLCD_COLUMN_NUM)
+        {
+
+            strncpy(strWtext2,str2,TLCD_COLUMN_NUM);
+            strWtext2[TLCD_COLUMN_NUM] = '\0';
+
+        }
+        else{
+					strncpy(strWtext2,str2,TLCD_COLUMN_NUM);
+					strWtext2[TLCD_COLUMN_NUM] = '\0';
+
+	          //  strcpy(strWtext2,str2);
+				}
+
+
+    // open  driver
+    tlcd_fd = open(TLCD_DRIVER_NAME,O_RDWR);
+    if ( tlcd_fd < 0 )
+    {
+        perror("driver open error.\n");
+        return 1;
+    }
+
+    tlcd_functionSet();
+    tlcd_clearScreen(1);
+    tlcd_clearScreen(2);
+
+    tlcd_setDDRAMAddr(nColumn, row1);
+    usleep(2000);
+    tlcd_writeStr(strWtext1);
+    tlcd_setDDRAMAddr(nColumn, row2);
+    usleep(2000);
+    tlcd_writeStr(strWtext2);
+
+    close(tlcd_fd);
+
+}
+
+
+
+
+
+
+
+
+
 
 
 //****************************keymatrix*************************
 #define KEY_MATRIX_DRIVER_NAME		"/dev/cnkey"
+
+
+
+
 
 
 
@@ -823,132 +1094,23 @@ void oLed(int direction)
 	unsigned short wCmd[10];
 
 
-
-
-	/*if ( argv[1][0] == 'w')
-	{
-		int i ,j;
-		OLED_Mode = OLED_MODE_WRITE;
-		if (argc < 3)
-		{
-			perror(" Args number is less than 3\n");
-			doHelp();
-			return 1;
-		}
-		j = 0;
-		for ( i  = 2; i < argc ; i++ )
-		{
-			wdata[j] = (unsigned char)read_hex(argv[i]);
-			j++;
-		}
-		writeNum = j;
-	}
-	else if ( argv[1][0] == 'r')
-	{
-		OLED_Mode = OLED_MODE_READ;
-		if ( argc < 3 )
-		{
-			perror(" Args number is less than 3\n");
-			doHelp();
-			return 1;
-		}
-		readNum = read_hex(argv[2]);
-
-		rdata = malloc(readNum);
-	}
-	else if ( argv[1][0] == 'c')
-	{
-		int i ,j;
-		OLED_Mode = OLED_MODE_CMD;
-		if (argc < 3)
-		{
-			perror(" Args number is less than 3\n");
-			doHelp();
-			return 1;
-		}
-		j = 0;
-		for ( i  = 2; i < argc ; i++ )
-		{
-
-			wCmd[j] = (unsigned short)read_hex(argv[i]);
-			j++;
-		}
-		writeNum = j;
-	}
-	else if ( argv[1][0] == 't')
-	{
-		OLED_Mode = OLED_MODE_RESET;
-	}  */
-
 		OLED_Mode = OLED_MODE_IMAGE;
 
-/*
-	else if (argv[1][0] == 'i')
-	{
-		OLED_Mode = OLED_MODE_INIT;
-	}
-	else
-	{
-		perror("No supported options.\n");
-		doHelp();
-		return 1;
-
-	}   */
 
 	// open  driver
 	OLED_fd = open(OLED_DRIVER_NAME,O_RDWR);
 
 
-	/*switch ( OLED_Mode )
-	{
-	case OLED_MODE_WRITE:
-		writeData(writeNum, wdata);
-		break;
-	case OLED_MODE_READ:
-		{
-			int i;
-			readData(readNum, rdata);
-			printf("Read Data:\n");
-			for(i =0 ; i < readNum ; i++ )
-			{
-				printf("[%02X]",(unsigned char)rdata[i]);
-			}
-			printf("\n");
-		}
-		break;
-	case OLED_MODE_CMD:
-		writeCmd(writeNum , wCmd);
-		break;
-	case OLED_MODE_RESET:
-		oledreset();
-		break;
-*/
 		if(direction == OLED_RIGHT)
 		oledimageLoading("right.img");
 		else
 		oledimageLoading("left.img");
 
-	/*case OLED_MODE_INIT:
-		OledInit();
-		break;
-	}*/
-
-
 
 	close(OLED_fd);
 
-	/*if ( OLED_Mode == OLED_MODE_READ)
-	{
-		if ( rdata != NULL)
-			free(rdata);
-
-	}*/
-
-
 
 }
-
-
 
 
 
@@ -959,212 +1121,6 @@ write cycle
 RS,(R/W) => E (rise) => Data => E (fall)
 
 ***************************************************/
-int textIsBusy(void)
-{
-	unsigned short wdata, rdata;
-
-	wdata = TEXTLCD_SIG_BIT_RW;
-	write(text_fd ,&wdata,2);
-
-	wdata = TEXTLCD_SIG_BIT_RW | TEXTLCD_SIG_BIT_E;
-	write(text_fd ,&wdata,2);
-
-	read(text_fd,&rdata ,2);
-
-	wdata = TEXTLCD_SIG_BIT_RW;
-	write(text_fd,&wdata,2);
-
-	if (rdata &  TEXTLCD_BUSY_BIT)
-		return TEXTLCD_TRUE;
-
-	return TEXTLCD_FALSE;
-}
-int text_writeCmd(unsigned short cmd)
-{
-	unsigned short wdata ;
-
-	if ( textIsBusy())
-		return TEXTLCD_FALSE;
-
-	wdata = cmd;
-	write(text_fd ,&wdata,2);
-
-	wdata = cmd | TEXTLCD_SIG_BIT_E;
-	write(text_fd ,&wdata,2);
-
-	wdata = cmd ;
-	write(text_fd ,&wdata,2);
-
-	return TEXTLCD_TRUE;
-}
-
-int text_setDDRAMAddr(int x , int y)
-{
-	unsigned short cmd = 0;
-//	printf("x :%d , y:%d \n",x,y);
-	if(textIsBusy())
-	{
-		perror("setDDRAMAddr busy error.\n");
-		return TEXTLCD_FALSE;
-
-	}
-	if(y == 1){
-	cmd = TEXTLCD_DDRAM_ADDR_LINE_1 +x;
-	//printf("line1 %d %d\n",x,y);
-	}
-	else if(y==2){
-	cmd = TEXTLCD_DDRAM_ADDR_LINE_2 +x;
-	//printf("line2 %d %d\n",x,y);
-	}
-
-	if ( cmd >= 0x80)
-		return TEXTLCD_FALSE;
-
-
-//	printf("setDDRAMAddr w1 :0x%X\n",cmd);
-
-	if (!text_writeCmd(cmd | TEXTLCD_SET_DDRAM_ADD_DEF))
-	{
-		perror("setDDRAMAddr error\n");
-		return TEXTLCD_FALSE;
-	}
-//	printf("setDDRAMAddr w :0x%X\n",cmd|SET_DDRAM_ADD_DEF);
-	usleep(1000);
-	return TEXTLCD_TRUE;
-}
-
-int text_displayMode(int bCursor, int bCursorblink, int blcd  )
-{
-	unsigned short cmd  = 0;
-
-	if ( bCursor)
-	{
-		cmd = TEXTLCD_DIS_CURSOR;
-	}
-
-	if (bCursorblink )
-	{
-		cmd |= TEXTLCD_DIS_CUR_BLINK;
-	}
-
-	if ( blcd )
-	{
-		cmd |= TEXTLCD_DIS_LCD;
-	}
-
-	if (!text_writeCmd(cmd | TEXTLCD_DIS_DEF))
-		return TEXTLCD_FALSE;
-
-	return TEXTLCD_TRUE;
-}
-
-int writeCh(unsigned short ch)
-{
-	unsigned short wdata =0;
-
-	if ( textIsBusy())
-		return TEXTLCD_FALSE;
-
-	wdata = TEXTLCD_SIG_BIT_RS | ch;
-	write(text_fd ,&wdata,2);
-
-	wdata = TEXTLCD_SIG_BIT_RS | ch | TEXTLCD_SIG_BIT_E;
-	write(text_fd ,&wdata,2);
-
-	wdata = TEXTLCD_SIG_BIT_RS | ch;
-	write(text_fd ,&wdata,2);
-	//usleep(1000);
-	return TEXTLCD_TRUE;
-
-}
-
-
-int setCursorMode(int bMove , int bRightDir)
-{
-	unsigned short cmd = TEXTLCD_MODE_SET_DEF;
-
-	if (bMove)
-		cmd |=  TEXTLCD_MODE_SET_SHIFT;
-
-	if (bRightDir)
-		cmd |= TEXTLCD_MODE_SET_DIR_RIGHT;
-
-	if (!text_writeCmd(cmd))
-		return TEXTLCD_FALSE;
-	return TEXTLCD_TRUE;
-}
-
-int functionSet(void)
-{
-	unsigned short cmd = 0x0038; // 5*8 dot charater , 8bit interface , 2 line
-
-	if (!text_writeCmd(cmd))
-		return TEXTLCD_FALSE;
-	return TEXTLCD_TRUE;
-}
-
-int writeStr(char* str)
-{
-
-
-	unsigned char wdata;
-	int i;
-	for(i =0; i < strlen(str) ;i++ )
-	{
-		if (str[i] == '_')
-			wdata = (unsigned char)' ';
-		else
-			wdata = str[i];
-		writeCh(wdata);
-	}
-	return TEXTLCD_TRUE;
-
-}
-
-#define TEXTLCD_LINE_NUM			2
-#define TEXTLCD_COLUMN_NUM			16
-int clearScreen(int nline)
-{
-	int i;
-	if (nline == 0)
-	{
-		if(textIsBusy())
-		{
-			perror("clearScreen error\n");
-			return TEXTLCD_FALSE;
-		}
-		if (!text_writeCmd(TEXTLCD_CLEAR_DISPLAY))
-			return TEXTLCD_FALSE;
-		return TEXTLCD_TRUE;
-	}
-	else if (nline == 1)
-	{
-		text_setDDRAMAddr(0,1);
-		for(i = 0; i <= TEXTLCD_COLUMN_NUM ;i++ )
-		{
-			writeCh((unsigned char)' ');
-		}
-		text_setDDRAMAddr(0,1);
-
-	}
-	else if (nline == 2)
-	{
-		text_setDDRAMAddr(0,2);
-		for(i = 0; i <= TEXTLCD_COLUMN_NUM ;i++ )
-		{
-			writeCh((unsigned char)' ');
-		}
-		text_setDDRAMAddr(0,2);
-	}
-	return TEXTLCD_TRUE;
-}
-
-
-#define TEXTLCD_CMD_TXT_WRITE		0
-#define TEXTLCD_CMD_CURSOR_POS		1
-#define TEXTLCD_CMD_CEAR_SCREEN		2
-
-
 
 
 
@@ -1313,96 +1269,6 @@ void dotMatrix(int speed)
 	close(dotmatrix_fd);
 
 
-}
-
-//***********************************textlcd*************************************
-int textLED(int row1, char* words1, int row2, char* words2)
-{
-
-	//sleep(1);
-
-	int nCmdMode;
-	int bCursorOn, bBlink, nline1 , nline2;
-	int nColumn1=0;
-	int nColumn2=0;
-	char strWtext1[TEXTLCD_COLUMN_NUM+1];
-	char strWtext2[TEXTLCD_COLUMN_NUM+1];
-
-	printf("row1:%d,row2:%d \n",row1,row2);
-	printf("words1:%s,words2:%s\n",words1,words2);
-
-
-
-		nCmdMode =  TEXTLCD_CMD_TXT_WRITE ;
-
-		nline1 = row1;
-		nline2 = row2;
-		//printf("nline1 :%d\n",nline1);
-		//printf("nline2 :%d\n",nline2);
-		//
-		// clearScreen(nline1);
-		// clearScreen(nline2);
-
-		if (strlen(words1) > TEXTLCD_COLUMN_NUM )
-		{
-			strncpy(strWtext1,words1,TEXTLCD_COLUMN_NUM);
-			strWtext1[TEXTLCD_COLUMN_NUM] = '\0';
-		}
-		else
-		{
-			strcpy(strWtext1,words1);
-
-		}
-		if(strlen(words2)>TEXTLCD_COLUMN_NUM)
-		{
-			strncpy(strWtext2,words2,TEXTLCD_COLUMN_NUM);
-			strWtext2[TEXTLCD_COLUMN_NUM] = '\0';
-		}
-		else
-		{
-
-			strcpy(strWtext2,words2);
-
-		}
-
-	// open  driver
-	text_fd = open(TEXTLCD_DRIVER_NAME,O_RDWR);
-	if ( text_fd < 0 )
-	{
-		perror("driver open error.\n");
-		return 1;
-	}
-
-
-	functionSet();
-
-	switch ( nCmdMode )
-	{
-	case TEXTLCD_CMD_TXT_WRITE:
-		clearScreen(0);
-		//printf("nline:%d ,nColumn:%d\n",nline,nColumn);
-		text_setDDRAMAddr(nColumn1, nline1);
-		usleep(2000);
-		writeStr(strWtext1);
-		text_setDDRAMAddr(nColumn2, nline2);
-		usleep(2000);
-		writeStr(strWtext2);
-		break;
-	/*case CMD_CURSOR_POS:
-		displayMode(bCursorOn, bBlink, TRUE);
-		text_setDDRAMAddr(nline-1, nColumn);
-		break;*/
-	case TEXTLCD_CMD_CEAR_SCREEN:
-		clearScreen(nline1);
-		clearScreen(nline2);
-		break;
-
-	}
-	printf("str1:%s,str2:%s\n",strWtext1,strWtext2);
-
-	close(text_fd);
-
-	return 0;
 }
 
 //*****************************************SpeedBuzzer**************************
@@ -2429,6 +2295,64 @@ static void DrawFromRGB565(unsigned char *displayFrame, unsigned char *videoFram
 
 #define  FBDEV_FILE "/dev/fb0"
 
+int init(){
+	int     fb_fd;
+	int	    ret;
+	int     index;
+
+
+	struct  fb_var_screeninfo fbvar;
+	struct  fb_fix_screeninfo fbfix;
+	unsigned char   *fb_mapped;
+	int             mem_size;
+
+
+	if( access(FBDEV_FILE, F_OK) )
+	{
+		printf("%s: access error\n", FBDEV_FILE);
+		return 1;
+	}
+
+	if( (fb_fd = open(FBDEV_FILE, O_RDWR)) < 0)
+	{
+		printf("%s: open error\n", FBDEV_FILE);
+		return 1;
+	}
+
+	if( ioctl(fb_fd, FBIOGET_VSCREENINFO, &fbvar) )
+	{
+		printf("%s: ioctl error - FBIOGET_VSCREENINFO \n", FBDEV_FILE);
+	//	goto fb_err;
+	}
+
+	if( ioctl(fb_fd, FBIOGET_FSCREENINFO, &fbfix) )
+	{
+		printf("%s: ioctl error - FBIOGET_FSCREENINFO \n", FBDEV_FILE);
+	//	goto fb_err;
+	}
+
+	screen_width    =   fbvar.xres;
+	screen_height   =   fbvar.yres;
+	bits_per_pixel  =   fbvar.bits_per_pixel;
+	line_length     =   fbfix.line_length;
+
+	printf("screen_width : %d\n", screen_width);
+	printf("screen_height : %d\n", screen_height);
+	printf("bits_per_pixel : %d\n", bits_per_pixel);
+	printf("line_length : %d\n", line_length);
+
+	mem_size    =   screen_width * screen_height * 4;
+	fb_mapped   =   (unsigned char *)mmap(0, mem_size,
+		 PROT_READ|PROT_WRITE, MAP_SHARED, fb_fd, 0);
+	if (fb_mapped < 0)
+	{
+		printf("mmap error!\n");
+		//goto fb_err;
+	}
+
+	initScreen(fb_mapped,fbvar,fbfix ,fb_fd);
+}
+
 
 int camera_start(){
 
@@ -2523,8 +2447,6 @@ int camera_start(){
 void * t_function(void *data)
 {
 
-
-
     printf("Thread Start\n");
     char str[MAX_MESSAGE] ;
     int count = 0;
@@ -2560,7 +2482,7 @@ void * t_function(void *data)
     printf("type : %s\n",type);
 
 		if(!strcmp("tlcd",type)){
-			textLED(1,params[0],2,params[1]);
+			textLcd(1,params[0],2,params[1]);
 		}
 
 		if(!strcmp("busled",type)){
@@ -2613,23 +2535,50 @@ void * t_function(void *data)
     for(i=0;i<MAX_MESSAGE;i++){
         str[i] = '\0';
 				for(j=0;j<10;j++){
-					params[j][i];
+					params[j][i]= '\0';
 				}
     }
 
     return (void*)data;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 int main(int argc , char *argv[])
 {
 
 	printf("please insert the pasword\n");
 
-	textLED(1,"please",2,"password");
-		if(keyMatrix()==0){
+	textLcd(1,"please",2,"password");
+	init();
+
+	while(1){
+
+		if(keyMatrix() == 0 ){
+			textLcd(1,"wrong",2,"password");
 			pwBuzzer();
-			textLED(1,"wrong",2,"password");
 		}
+		else{
+			textLcd(1,"Good",2,"password");
+			break;
+		}
+
+	}
+
 
     char server_reply[MAX_MESSAGE];
     //Create socket
@@ -2646,7 +2595,7 @@ int main(int argc , char *argv[])
     server.sin_family = AF_INET;
     server.sin_port = htons( port );
 
-		textLED(1,"123456789",2,"987654321");
+		textLcd(1,"123456789",2,"987654321");
 
     //Connect to remote server
     if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
