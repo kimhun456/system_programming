@@ -14,6 +14,7 @@ var server = net.createServer(function(socket) {
 	socket.on('data',function(data){
 		received_data = data.toString();
 
+		broadcast(data);
 		console.log("recieved data : " + received_data);
 
 		var datas = received_data.split("/");
@@ -22,14 +23,17 @@ var server = net.createServer(function(socket) {
 
 
 		if(datas[1]=="lock" && datas[2] =="0"){
-				broadcast("android/camera");
+				broadcast("android/camera/");
+
+				console.log("send data  : " + "android/camera");
 		}
 		if(datas[1] == "lock" && datas[2]=="1" ){
-				broadcast("android/stop");
+				broadcast("android/stop/");
+
+				console.log("send data  : " + "android/stop");
 		}
 
 
-		broadcast(data);
 		console.log("send data  : " + received_data);
 	});
 
