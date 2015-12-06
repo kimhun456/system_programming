@@ -26,11 +26,16 @@
 thread and message variable
 */
 #define MAX_THREADS 10000
+#define BUZZER_THREADS 1000
 #define MAX_MESSAGE 2000
+#define BIKE 0
+#define RIDE 1
+#define LOCK 2
 
 // ip , port
 char *ip = "52.69.176.156";
 int port = 1337;
+int STATUS = BIKE;
 int sock;
 struct sockaddr_in server;
 int limitSpeed=0;
@@ -41,11 +46,21 @@ int dot_flag=0;
 int fnd_fd;
 int fnd_flag=0;
 
+//buzzer
+int sbuzzer_fd;
+
+
 pthread_t p_thread[MAX_THREADS];
+pthread_t buzzer_thread[BUZZER_THREADS];
 pthread_mutex_t  mutex = PTHREAD_MUTEX_INITIALIZER;
+
+int buzzer_thread_id[BUZZER_THREADS];
 int p_thread_id[MAX_THREADS];
+int buzzer_count=0;
+int buzzer_flag=0;
 int count = 0;
 int camera = 0;
+int camera_run = 0;
 int camera_fd_fd;
 int camera_flag=1;
 //p_thread_id camera_thread = NULL;
@@ -490,8 +505,8 @@ void tlcd_clearAll(){
 void camera_stop(){
 
     camera_flag=0;
-
-
+    sleep(1);
+    camera_flag=1;
 }
 
 
@@ -738,7 +753,7 @@ void fndLed(int distance, int flag)
 
 	mode = FND_MODE_STATIC_DIS;
 
-	durationtime = 10;
+	durationtime = 100;
 
 	number = distance;
 
@@ -752,9 +767,7 @@ void fndLed(int distance, int flag)
 
 	fndchangemode(1);
 
-		fndDisp(fnd_fd, number , 0,durationtime , flag);
-
-
+	fndDisp(fnd_fd, number , 0,durationtime , flag);
 
 		//LABEL_ERR:
 
@@ -1372,7 +1385,7 @@ int displayDotLed(int driverfile , int num ,int timeS, int flag)
 void dotMatrix(int speed, int flag)
 {
 	int i=0;
-  int durationTime = 5;
+  int durationTime = 100;
 
 
 
@@ -1394,72 +1407,54 @@ void dotMatrix(int speed, int flag)
 
 }
 
+
+//*****************************************buzzerThread**************************
+
+
+void *buzzer_function(void *data){
+  printf("buzzer_thread start\n");
+  int buzzerNumber = 30 ;
+  if(buzzer_flag==1){
+    return ;
+  }
+	write(sbuzzer_fd,&buzzerNumber,4);
+    printf("buzzer wirte\n");
+  buzzer_flag=1;
+ 	sleep(5);
+	buzzerNumber = 0;
+    printf("buzzer stop\n");
+	write(sbuzzer_fd,&buzzerNumber,4);
+  buzzer_flag=0;
+
+  printf("buzzer_thread stop\n");
+
+  return data;
+}
+
+
 //*****************************************SpeedBuzzer**************************
 void speedBuzzer(int speed,int limitSpeed)
 {
-	int buzzerNumber=0;
-	int sbuzzer_fd;
 
-
-
-	//buzzerNumber = atoi(argv[1]);
-
-	//printf("buzzer number :%d \n",buzzerNumber);
-
-
-
-	// open  driver
-	sbuzzer_fd = open(SPEED_BUZZER_DRIVER_NAME,O_RDWR);
-	if ( sbuzzer_fd < 0 )
-	{
-		perror("driver (//dev//cnbuzzer) open error.\n");
-		exit(1);
-	}
-
-	// control led
 	if(speed >= limitSpeed){
-  	buzzerNumber = 30 ;
-	write(sbuzzer_fd,&buzzerNumber,4);
- 	sleep(3);
-	buzzerNumber = 0;
-	write(sbuzzer_fd,&buzzerNumber,4);
- 	}
-	close(sbuzzer_fd);
+  buzzer_thread_id[buzzer_count] =pthread_create(&buzzer_thread[buzzer_count], NULL, buzzer_function, NULL);
+  buzzer_count++;
+  if(buzzer_count>BUZZER_THREADS){
+    buzzer_count%=BUZZER_THREADS;
+  }
+
+  }
 
 
 }
 //************************************pwError buzzer *********************
 void pwBuzzer(void)
 {
-	int buzzerNumber=0;
-	int pwbuzzer_fd;
-
-
-
-	//buzzerNumber = atoi(argv[1]);
-
-	//printf("buzzer number :%d \n",buzzerNumber);
-
-
-
-	// open  driver
-	pwbuzzer_fd = open(PW_BUZZER_DRIVER_NAME,O_RDWR);
-	if ( pwbuzzer_fd < 0 )
-	{
-		perror("driver (//dev//cnbuzzer) open error.\n");
-		exit(1);
-	}
-
-	// control led
-
-  	buzzerNumber = 30 ;
-	write(pwbuzzer_fd,&buzzerNumber,4);
- 	sleep(3);
-	buzzerNumber = 0;
-	write(pwbuzzer_fd,&buzzerNumber,4);
-
-	close(pwbuzzer_fd);
-
+  buzzer_thread_id[buzzer_count] =pthread_create(&buzzer_thread[buzzer_count], NULL, buzzer_function, NULL);
+  buzzer_count++;
+  if(buzzer_count>BUZZER_THREADS){
+    buzzer_count%=BUZZER_THREADS;
+  }
 
 }
 //**********************************color led ************************************
@@ -2231,16 +2226,26 @@ int fbfd)
     int line_length;
     int coor_x, coor_y;
     int cols = 0, rows = 0;
-int mem_size;
+    int mem_size;
     char *pData, *data;
     char r, g, b;
     unsigned long bmpdata[1280*800];
     unsigned long pixel;
     unsigned char *pfbmap;
     unsigned long *ptr;
-
-    char* file_name = "bike.bmp";
-
+    char* file_name;
+    if(STATUS==BIKE){
+        file_name = "bike.bmp";
+    }else if(STATUS==LOCK){
+        file_name = "lock.bmp";
+    }else if(STATUS==RIDE){
+        file_name = "ride.bmp";
+    }else{
+        file_name = "bike.bmp";
+    }
+    // char* file_name = "bike.bmp";
+    // char* lock = "lock.bmp";
+    // char* ride = "ride.bmp";
     read_bmp(file_name, &pData, &data, &cols, &rows);
 
     printf("Bitmap : cols = %d, rows = %d\n", cols, rows);
@@ -2482,13 +2487,6 @@ int init(){
 
 	initScreen(fb_mapped,fbvar,fbfix ,fb_fd);
 
-
-  fndLed(0,0);
-  dotMatrix(0,0);
-  busled(0);
-  oLed(0);
-  cled(0);
-  tlcd_clearAll();
 }
 
 
@@ -2503,7 +2501,7 @@ int camera_start(){
 	unsigned char   *fb_mapped;
 	int             mem_size;
 
-
+  camera_run=1;
 	if( access(FBDEV_FILE, F_OK) )
 	{
 		printf("%s: access error\n", FBDEV_FILE);
@@ -2547,8 +2545,7 @@ int camera_start(){
 		//goto fb_err;
 	}
 
-  	initScreen(fb_mapped,fbvar,fbfix ,camera_fd_fd);
-    	initScreen(fb_mapped,fbvar,fbfix ,camera_fd_fd);
+	initScreen(fb_mapped,fbvar,fbfix ,camera_fd_fd);
 
 	CreateCamera(0);
 	startPreview();
@@ -2569,8 +2566,8 @@ int camera_start(){
 	DestroyCamera();
 	fb_err:
 	close(camera_fd_fd);
-
-  sleep(1);
+  camera_run=0;
+  usleep(1000);
 
   init();
 
@@ -2627,10 +2624,7 @@ void * t_function(void *data)
     printf("device : %s\n",device);
     printf("type : %s\n",type);
 
-		if(!strcmp("tlcd",type)){
-      tlcd_clearAll();
-			textLcd(1,params[0],2,params[1],1);
-		}
+
 
 		if(!strcmp("busled",type)){
 			int speed = atoi(params[0]);
@@ -2639,7 +2633,6 @@ void * t_function(void *data)
 
 		if(!strcmp("dot",type)){
 			int speed = atoi(params[0]);
-
 			dotMatrix(speed,1);
 		}
 
@@ -2658,15 +2651,12 @@ void * t_function(void *data)
 			cled(speed);
 		}
 
-		if(!strcmp("speed",type)){
-			int speed = atoi(params[0]);
-			speedBuzzer(speed,limitSpeed);
-		}
 
 		if(!strcmp("camera",type)){
-			camera_start();
+      if(camera_run==0){
+  			camera_start();
+      }
       //camera_thread= pthread_self();
-
       camera = count;
 
 		}
@@ -2678,6 +2668,66 @@ void * t_function(void *data)
     if(!strcmp("stop",type)){
 			camera_stop();
 		}
+
+    if(!strcmp("speed",type)){
+      int speed = atoi(params[0]);
+
+      if(speed>0){
+        STATUS=RIDE;
+        init();
+      }else {
+        STATUS=BIKE;
+        init();
+      }
+      cled(speed);
+      speedBuzzer(speed,limitSpeed);
+      busled(speed);
+      dotMatrix(speed,1);
+    }
+
+    if(!strcmp("distance",type)){
+
+
+      int distance = atoi(params[0]);
+      fndLed(distance,1);
+    }
+
+    if(!strcmp("tlcd",type)){
+
+
+      tlcd_clearAll();
+      textLcd(1,params[0],2,params[1],1);
+    }
+
+    if(!strcmp("lock",type)){
+      int lock = atoi(params[0]);
+      if(lock ==1){
+        STATUS = LOCK;
+        fndLed(0,0);
+        dotMatrix(0,0);
+        busled(0);
+        cled(0);
+        tlcd_clearAll();
+      }else{
+        STATUS = BIKE;
+      }
+      init();
+    }
+
+    if(!strcmp("shake",type)){
+
+
+      int shake = atoi(params[0]);
+
+      if(shake ==1 && STATUS == LOCK){
+        pwBuzzer();
+      }
+
+    }
+
+
+
+
 
     for(i=0;i<count;i++){
         printf("params %d : %s\n",i+1,params[i]);
@@ -2697,8 +2747,9 @@ void * t_function(void *data)
     return (void*)data;
 }
 
-
-
+//
+// Android/tlcd/latitude/longitude
+// Adnroid/
 
 
 
@@ -2709,6 +2760,13 @@ int main(int argc , char *argv[])
       char server_reply[MAX_MESSAGE];
       char tmp[MAX_MESSAGE];
 
+
+      /*
+
+        Driver Open
+
+      */
+
       fnd_fd = open(FND_DRIVER_NAME,O_RDWR);
     	dotmatrix_fd = open(DOTMATRIX_DRIVER_NAME,O_RDWR);
       if ( dotmatrix_fd < 0 )
@@ -2717,9 +2775,23 @@ int main(int argc , char *argv[])
     		exit(1);
     	}
 
+    	sbuzzer_fd = open(SPEED_BUZZER_DRIVER_NAME,O_RDWR);// open  driver
+    	if ( sbuzzer_fd < 0 )
+    	{
+    		perror("driver (//dev//cnbuzzer) open error.\n");
+    		exit(1);
+    	}
+
 	printf("please_insert_pasword\n");
 
 	init();
+
+  fndLed(0,0);
+  dotMatrix(0,0);
+  busled(0);
+  oLed(0);
+  cled(0);
+  tlcd_clearAll();
 
   textLcd(1,"please_input",2,"password",1);
 	while(1){
@@ -2731,11 +2803,12 @@ int main(int argc , char *argv[])
 		else{
       oLed(1);
 			textLcd(1,"Good",2,"password",1);
+      STATUS=LOCK;
+      init();
 			break;
 		}
 
 	}
-
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
 
@@ -2804,10 +2877,7 @@ int main(int argc , char *argv[])
 					limitSpeed = 40;
 				}
 
-
-        // printf("Received data : ");
-        //
-        // printf("%s\n",server_reply);
+        //init();
 
         printf("Before Thread Created\n");
 
@@ -2820,18 +2890,22 @@ int main(int argc , char *argv[])
             exit(0);
         }
 
-
         pthread_detach(p_thread[count]);
 
         count++;
-
         if(count > MAX_THREADS){
             count=count%MAX_THREADS;
         }
 
     }
+
+    /*
+      Driver Close
+    */
     close(sock);
   	close(dotmatrix_fd);
   	close(fnd_fd);
+  	close(sbuzzer_fd);
+
     return 0;
 }
