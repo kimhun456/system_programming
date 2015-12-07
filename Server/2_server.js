@@ -1,5 +1,5 @@
 var net = require('net');
-var port = 1337;
+var port = 1338;
 var clients = [];
 var received_data;
 
@@ -22,17 +22,15 @@ var server = net.createServer(function(socket) {
 		console.log(datas);
 
 
-		if(datas[1]=="lock" && (datas[2] =="0"||data[2]=="0\n")){
-				setTimeout(function(){
-					broadcast("android/camera/");
-				},1000);
-				console.log("send data  : " + "android/camera/");
+		if(datas[1]=="lock" && datas[2] =="0"){
+				broadcast("android/camera/");
+
+				console.log("send data  : " + "android/camera");
 		}
-		if(datas[1] == "lock" && (datas[2]=="1"||datas[2]=="1\n") ){
-				setTimeout(function() {
-					broadcast("android/stop/");	
-				}, 1000);
-				console.log("send data  : " + "android/stop/");
+		if(datas[1] == "lock" && datas[2]=="1" ){
+				broadcast("android/stop/");
+
+				console.log("send data  : " + "android/stop");
 		}
 
 
@@ -53,7 +51,7 @@ var server = net.createServer(function(socket) {
 
 server.listen(port);
 
-console.log("server start in 52.69.176.156 port 1337");
+console.log("server start in 52.69.176.156 port "+port);
 
 function broadcast(message){
 	clients.forEach(function (client){
