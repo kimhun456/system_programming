@@ -26,7 +26,7 @@ var server = net.createServer(function(socket) {
 				sum+=datas[i];
 		}
 		console.log(sum);
-		
+
 		if(datas[1]=="lock" && (datas[2] =="0"||data[2]=="0\n")){
 				setTimeout(function(){
 					broadcast("android/camera/");
