@@ -18,7 +18,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 
-
 public class Main {
 
 
@@ -54,37 +53,42 @@ public class Main {
 
 			System.out.println("-----접속 대기중-----");
 
-			socket = serverSocket.accept(); // Client의 접속 대기
+      while(true){
 
-			inetAddress = socket.getInetAddress(); // Client의 ip 받아옴
+        			socket = serverSocket.accept(); // Client의 접속 대기
 
-			System.out.println(inetAddress.getHostAddress() + " 님이 접속했습니다.");
+        			inetAddress = socket.getInetAddress(); // Client의 ip 받아옴
 
-			is = socket.getInputStream(); // 입력스트림
+        			System.out.println(inetAddress.getHostAddress() + " 님이 접속했습니다.");
 
-			os = socket.getOutputStream(); // 출력스트림
+        			is = socket.getInputStream(); // 입력스트림
 
-			pw = new PrintWriter(new OutputStreamWriter(os));
+        			os = socket.getOutputStream(); // 출력스트림
 
-//			pw = new PrintWriter(new OutputStreamWriter(os), true); // true-autoFlush
+        			pw = new PrintWriter(new OutputStreamWriter(os));
 
-			br = new BufferedReader(new InputStreamReader(is));
+        //			pw = new PrintWriter(new OutputStreamWriter(os), true); // true-autoFlush
 
-			while ((receiveMsg = br.readLine()) != null) {
+        			br = new BufferedReader(new InputStreamReader(is));
 
-				System.out.println("Client로 부터 받은 문자열 : " + receiveMsg);
+        			while ((receiveMsg = br.readLine()) != null) {
 
-				pw.println(receiveMsg); // 받은메시지 출력
+        				System.out.println("Client로 부터 받은 문자열 : " + receiveMsg);
 
-				pw.flush(); // 버퍼 비움
+        				pw.println(receiveMsg); // 받은메시지 출력
 
-			}
+        				pw.flush(); // 버퍼 비움
 
-			pw.close(); // 스트림닫기
+        			}
 
-			br.close(); // 버퍼닫기
+        			pw.close(); // 스트림닫기
 
-			socket.close(); // 소켓닫기
+        			br.close(); // 버퍼닫기
+
+        			socket.close(); // 소켓닫기
+
+      }
+
 
 		} catch (Exception e) { // 예외처리
 
