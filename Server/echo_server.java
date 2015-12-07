@@ -1,24 +1,22 @@
 
+
+
 import java.io.BufferedReader;
-
 import java.io.InputStream;
-
 import java.io.InputStreamReader;
-
 import java.io.OutputStream;
-
 import java.io.OutputStreamWriter;
-
 import java.io.PrintWriter;
-
 import java.net.InetAddress;
-
 import java.net.ServerSocket;
-
 import java.net.Socket;
+import java.util.ArrayList;
 
 
 public class Main {
+
+
+	static ArrayList<PrintWriter> clientList;
 
 
 
@@ -44,7 +42,7 @@ public class Main {
 
 		String receiveMsg = null; // Client의 받은 문자열 저장
 
-
+		clientList = new ArrayList<PrintWriter>();
 
 
 		try {
@@ -67,6 +65,9 @@ public class Main {
 
         			pw = new PrintWriter(new OutputStreamWriter(os));
 
+
+        			clientList.add(pw);
+
         //			pw = new PrintWriter(new OutputStreamWriter(os), true); // true-autoFlush
 
         			br = new BufferedReader(new InputStreamReader(is));
@@ -75,13 +76,19 @@ public class Main {
 
         				System.out.println("Client로 부터 받은 문자열 : " + receiveMsg);
 
-        				pw.println(receiveMsg); // 받은메시지 출력
+        				for(PrintWriter pws: clientList){
 
-        				pw.flush(); // 버퍼 비움
+
+        					pws.println(receiveMsg); // 받은메시지 출력
+        					pws.flush(); // 버퍼 비움
+        				}
+
 
         			}
 
         			pw.close(); // 스트림닫기
+
+        			clientList.remove(pw);
 
         			br.close(); // 버퍼닫기
 
