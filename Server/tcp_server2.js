@@ -1,5 +1,4 @@
 var net = require('net');
-var sleep = require("sleep");
 var port = 1337;
 var clients = [];
 var received_data;
@@ -14,38 +13,35 @@ var server = net.createServer(function(socket) {
 	socket.on('data',function(data){
 		received_data = data.toString();
 
-		broadcast(data);
+		broadcast(data+"*");
 		console.log("recieved data : " + received_data);
 
 		var datas = received_data.split("/");
 
 		console.log(datas);
 
-		var len = datas.length();
+		var len = datas.length;
 		var sum="";
 		for(var i=0;i<len-1;i++){
-				sum+=datas[i];
+				sum+=datas[i]+"/";
 		}
-		console.log(sum);
-		
+		console.log("convert data : "+sum);
+//		broadcast(sum);
 		if(datas[1]=="lock" && (datas[2] =="0"||data[2]=="0\n")){
 				setTimeout(function(){
 					broadcast("android/camera/");
-				},100);
+				},1000);
+				console.log("send data  : " + "android/camera/");
 		}
 		if(datas[1] == "lock" && (datas[2]=="1"||datas[2]=="1\n") ){
 				setTimeout(function() {
-<<<<<<< HEAD
-					broadcast("android/stop/");	
-				}, 100);
-=======
 					broadcast("android/stop/");
 				}, 1000);
 				console.log("send data  : " + "android/stop/");
->>>>>>> f6c6519d73158c67ad06eeaecf9c9ae07b0acd67
 		}
 
 
+//		console.log("send data  : " + received_data);
 	});
 
 	socket.on("end", function(){
@@ -66,13 +62,8 @@ console.log("server start in 52.69.176.156 port 1337");
 
 function broadcast(message){
 	clients.forEach(function (client){
-		var time = Math.random()*1000;
-		console.log(time);
-		sleep.usleep(parseInt(time));
-		client.write(message+"*");
-
-		sleep.usleep(1000);
-		console.log("send data : " + message);
+		client.write(message);
+		console.log("send data : "+ message);
 	});
 }
 
